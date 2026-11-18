@@ -1,32 +1,37 @@
+"""Document API endpoints."""
+
 from fastapi import APIRouter, Depends, Query
 
-from flyright.api.deps import get_store
+from flyright.api.deps import get_repo
 from flyright.api.errors import AppError
+from flyright.db.repository import DocumentRepository
 
 router = APIRouter(prefix="/v1/documents", tags=["Documents"])
 
 
 @router.get("")
-def list_documents(
+async def list_documents(
     q: str | None = None,
     limit: int = Query(default=10, ge=1, le=100),
-    store=Depends(get_store),
+    repository: DocumentRepository = Depends(get_repo),
 ):
-    records = store.records
-
-    if q:
-        records = [record for record in records if q.lower() in str(record).lower()]
-
-    return {"total": len(records), "items": records[:limit]}
+    """List documents with optional text search."""
+    total, items = await repository.list(q=q, limit=limit)
+    return {"total": total, "items": items}
 
 
 @router.get("/{document_id}")
-def get_document(
+async def get_document(
     document_id: str,
-    store=Depends(get_store),
+    repository: DocumentRepository = Depends(get_repo),
 ):
-    for record in store.records:
-        if record["id"] == document_id:
-            return record
+    """Retrieve a document by ID."""
+    document = await repository.get(document_id)
 
-    raise AppError(status_code=404, detail=f"No document with id '{document_id}'.")
+    if document is None:
+        raise AppError(
+            status_code=404,
+            detail=f"No document with id '{document_id}'.",
+        )
+
+    return document

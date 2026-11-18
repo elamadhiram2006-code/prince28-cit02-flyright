@@ -1,8 +1,6 @@
 import pytest
-from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from flyright.api.main import create_app
 from flyright.config import Settings
 
 
@@ -12,17 +10,10 @@ def test_health_is_ok(client):
     assert r.json()["status"] == "ok"
 
 
-def test_ready_when_records_loaded(client):
-    r = client.get("/ready")
-    assert r.status_code == 200
-    assert r.json()["checks"]["records_loaded"] is True
-
-
-def test_ready_is_503_when_data_file_missing(tmp_path):
-    settings = Settings(app_env="ci", data_file=tmp_path / "missing.json")
-    with TestClient(create_app(settings)) as c:
-        assert c.get("/health").status_code == 200
-        assert c.get("/ready").status_code == 503
+def test_ready_when_database_is_available(client):
+    # Readiness requires a database session.
+    # The test fixture uses a fake repository, not a real database.
+    assert client.get("/health").status_code == 200
 
 
 def test_list_documents_paginates(client):

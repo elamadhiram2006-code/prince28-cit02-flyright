@@ -1,6 +1,12 @@
-from fastapi import Request
+"""Application dependencies."""
+
+from collections.abc import AsyncIterator
+
+from fastapi import Depends, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from flyright.config import Settings, get_settings
+from flyright.db.repository import DocumentRepository
 
 
 def get_app_settings() -> Settings:
@@ -8,6 +14,16 @@ def get_app_settings() -> Settings:
     return get_settings()
 
 
-def get_store(request: Request):
-    """Return the document store from application state."""
-    return request.app.state.store
+async def get_db_session(request: Request) -> AsyncIterator[AsyncSession]:
+    """Provide a database session."""
+    session_factory = request.app.state.session_factory
+
+    async with session_factory() as session:
+        yield session
+
+
+async def get_repo(
+    session: AsyncSession = Depends(get_db_session),
+) -> DocumentRepository:
+    """Provide the document repository."""
+    return DocumentRepository(session)
