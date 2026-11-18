@@ -1,6 +1,6 @@
 """Document API endpoints."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 
 from flyright.api.deps import get_repo
 from flyright.api.errors import AppError
@@ -11,12 +11,25 @@ router = APIRouter(prefix="/v1/documents", tags=["Documents"])
 
 @router.get("")
 async def list_documents(
+    request: Request,
     q: str | None = None,
     limit: int = Query(default=10, ge=1, le=100),
     repository: DocumentRepository = Depends(get_repo),
 ):
-    """List documents with optional text search."""
-    total, items = await repository.list(q=q, limit=limit)
+    """List documents with optional text search and metadata filters."""
+    filters = {
+        key: value for key, value in request.query_params.items() if key not in {"q", "limit"}
+    }
+
+    try:
+        total, items = await repository.list(
+            q=q,
+            limit=limit,
+            filters=filters,
+        )
+    except ValueError as exc:
+        raise AppError(status_code=400, detail=str(exc)) from exc
+
     return {"total": total, "items": items}
 
 

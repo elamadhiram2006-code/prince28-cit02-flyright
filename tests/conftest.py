@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -22,6 +24,15 @@ class FakeRepository:
         if q:
             records = [record for record in records if q.lower() in str(record).lower()]
 
+        # Validate metadata filter keys.
+        for key in filters or {}:
+            if not re.fullmatch(r"[a-z_][a-z0-9_]{0,40}", key):
+                raise ValueError(f"Invalid filter key: {key}")
+
+        # Apply metadata filters.
+        for key, value in (filters or {}).items():
+            records = [record for record in records if str(record.get(key)) == value]
+
         return len(records), records[:limit]
 
     async def get(self, document_id):
@@ -33,7 +44,10 @@ class FakeRepository:
 
 @pytest.fixture
 def client(tmp_path):
-    settings = Settings(app_env="ci", data_file=tmp_path / "records.json")
+    settings = Settings(
+        app_env="ci",
+        data_file=tmp_path / "records.json",
+    )
     app = create_app(settings)
     app.dependency_overrides[get_repo] = FakeRepository
 

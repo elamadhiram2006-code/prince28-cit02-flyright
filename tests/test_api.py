@@ -1,6 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
+from flyright.api.deps import get_db_session
 from flyright.config import Settings
 
 
@@ -11,9 +12,41 @@ def test_health_is_ok(client):
 
 
 def test_ready_when_database_is_available(client):
-    # Readiness requires a database session.
-    # The test fixture uses a fake repository, not a real database.
-    assert client.get("/health").status_code == 200
+    class FakeSession:
+        async def execute(self, query):
+            return None
+
+    async def override_session():
+        yield FakeSession()
+
+    client.app.dependency_overrides[get_db_session] = override_session
+
+    r = client.get("/ready")
+
+    assert r.status_code == 200
+    assert r.json() == {
+        "status": "ready",
+        "checks": {"database": True},
+    }
+
+
+def test_ready_returns_503_when_database_fails(client):
+    class FakeSession:
+        async def execute(self, query):
+            raise RuntimeError("Database unavailable")
+
+    async def override_session():
+        yield FakeSession()
+
+    client.app.dependency_overrides[get_db_session] = override_session
+
+    r = client.get("/ready")
+
+    assert r.status_code == 503
+    assert r.json() == {
+        "status": "not_ready",
+        "checks": {"database": False},
+    }
 
 
 def test_list_documents_paginates(client):
@@ -58,5 +91,27 @@ def test_request_id_is_echoed(client):
 
 def test_app_refuses_to_start_without_app_env(monkeypatch):
     monkeypatch.delenv("APP_ENV", raising=False)
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+def test_metadata_filter_returns_matching_records(client):
+    r = client.get("/v1/documents", params={"year": "2024"})
+
+    assert r.status_code == 200
+    assert [item["id"] for item in r.json()["items"]] == ["002"]
+
+
+def test_invalid_metadata_filter_returns_400(client):
+    r = client.get("/v1/documents", params={"bad-key": "value"})
+
+    assert r.status_code == 400
+    assert r.headers["content-type"] == "application/problem+json"
+
+
+def test_app_refuses_to_start_without_database_url(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "ci")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
