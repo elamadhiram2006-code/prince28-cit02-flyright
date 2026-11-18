@@ -212,7 +212,8 @@ Result:
 
 
 
-The three integration tests are skipped when `TEST\_DATABASE\_URL` is not configured.
+Thenext
+ three integration tests are skipped when `TEST\_DATABASE\_URL` is not configured.
 
 
 
@@ -241,3 +242,65 @@ Result:
 All checks passed!
 
 ```
+## 7. Final Day 3 Verification
+
+### Database Loader Test Evidence
+
+The test database branch already contained 20 sample records.
+
+First run:
+```text
+records=20 inserted=0 updated=0 unchanged=20
+```
+
+Second run:
+```text
+records=20 inserted=0 updated=0 unchanged=20
+```
+
+Temporary modification test:
+```text
+records=20 inserted=0 updated=1 unchanged=19
+```
+
+Restoration run:
+```text
+records=20 inserted=0 updated=1 unchanged=19
+```
+
+The original sample JSON file was not modified. The temporary test file was removed.
+
+### PostgreSQL Integration Tests
+
+Command:
+```powershell
+uv run pytest tests/test_db_integration.py -v
+```
+
+Result:
+```text
+3 passed in 10.76s
+```
+
+### Complete Test Suite
+
+Command:
+```powershell
+uv run pytest -v
+```
+
+Result:
+```text
+19 passed in 11.50s
+```
+
+### Code Quality
+
+Command:
+```powershell
+uv run ruff check .
+```
+
+Result:
+```text
+All checks passed!
