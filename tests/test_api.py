@@ -1,8 +1,7 @@
 import pytest
-from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from flyright.api.main import create_app
+from flyright.api.deps import get_db_session
 from flyright.config import Settings
 
 
@@ -12,17 +11,42 @@ def test_health_is_ok(client):
     assert r.json()["status"] == "ok"
 
 
-def test_ready_when_records_loaded(client):
+def test_ready_when_database_is_available(client):
+    class FakeSession:
+        async def execute(self, query):
+            return None
+
+    async def override_session():
+        yield FakeSession()
+
+    client.app.dependency_overrides[get_db_session] = override_session
+
     r = client.get("/ready")
+
     assert r.status_code == 200
-    assert r.json()["checks"]["records_loaded"] is True
+    assert r.json() == {
+        "status": "ready",
+        "checks": {"database": True},
+    }
 
 
-def test_ready_is_503_when_data_file_missing(tmp_path):
-    settings = Settings(app_env="ci", data_file=tmp_path / "missing.json")
-    with TestClient(create_app(settings)) as c:
-        assert c.get("/health").status_code == 200
-        assert c.get("/ready").status_code == 503
+def test_ready_returns_503_when_database_fails(client):
+    class FakeSession:
+        async def execute(self, query):
+            raise RuntimeError("Database unavailable")
+
+    async def override_session():
+        yield FakeSession()
+
+    client.app.dependency_overrides[get_db_session] = override_session
+
+    r = client.get("/ready")
+
+    assert r.status_code == 503
+    assert r.json() == {
+        "status": "not_ready",
+        "checks": {"database": False},
+    }
 
 
 def test_list_documents_paginates(client):
@@ -67,5 +91,27 @@ def test_request_id_is_echoed(client):
 
 def test_app_refuses_to_start_without_app_env(monkeypatch):
     monkeypatch.delenv("APP_ENV", raising=False)
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+def test_metadata_filter_returns_matching_records(client):
+    r = client.get("/v1/documents", params={"year": "2024"})
+
+    assert r.status_code == 200
+    assert [item["id"] for item in r.json()["items"]] == ["002"]
+
+
+def test_invalid_metadata_filter_returns_400(client):
+    r = client.get("/v1/documents", params={"bad-key": "value"})
+
+    assert r.status_code == 400
+    assert r.headers["content-type"] == "application/problem+json"
+
+
+def test_app_refuses_to_start_without_database_url(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "ci")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
     with pytest.raises(ValidationError):
         Settings(_env_file=None)

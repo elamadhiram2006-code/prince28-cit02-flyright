@@ -1,23 +1,32 @@
-from fastapi import APIRouter, Request
+"""Health and readiness endpoints."""
+
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from flyright.api.deps import get_db_session
 
 router = APIRouter()
 
 
 @router.get("/health")
 def health():
+    """Check whether the API is running."""
     return {"status": "ok"}
 
 
 @router.get("/ready")
-def ready(request: Request):
-    store = getattr(request.app.state, "store", None)
-
-    records_loaded = store is not None and len(store.get_all()) > 0
-
-    if records_loaded:
-        return {"status": "ready", "checks": {"records_loaded": True}}
-
-    return JSONResponse(
-        status_code=503, content={"status": "not_ready", "checks": {"records_loaded": False}}
-    )
+async def ready(session: AsyncSession = Depends(get_db_session)):
+    """Check database connectivity."""
+    try:
+        await session.execute(text("SELECT 1"))
+        return {"status": "ready", "checks": {"database": True}}
+    except Exception:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready",
+                "checks": {"database": False},
+            },
+        )
