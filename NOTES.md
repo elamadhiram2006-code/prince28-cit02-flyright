@@ -304,3 +304,34 @@ uv run ruff check .
 Result:
 ```text
 All checks passed!
+
+
+## 8. Day 4 – Docker and Testing
+
+### Docker Setup
+
+- Created a multi-stage Dockerfile using Python 3.12 and uv.
+- Configured a non-root application user.
+- Added Docker Compose services for API, PostgreSQL, Redis, and migrations.
+- Verified all services started successfully.
+
+### API Verification
+
+- Swagger UI: http://localhost:8000/docs
+- Health endpoint: GET /health
+- Readiness endpoint: GET /ready
+- Documents endpoint: GET /v1/documents
+
+### Health and Recovery Test
+
+Stopped PostgreSQL and verified:
+- /health returned status ok.
+- /ready returned status not_ready.
+- After restarting PostgreSQL, /ready returned status ready.
+
+### Migration and Loader Idempotency
+
+After restarting the Docker Compose stack:
+
+```text
+records=20 inserted=0 updated=0 unchanged=20
