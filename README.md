@@ -35,6 +35,11 @@ Entitlement correct for 95%+ of 40 test scenarios.
 
 ## Run it locally
 
+### Using Docker Compose (recommended)
+
+```bash
+docker compose up --build -d
+
 ```bash
 uv sync
 cp .env.example .env   # Windows: copy .env.example .env
