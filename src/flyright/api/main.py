@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 
+from flyright.api.deps import get_app_settings
 from flyright.api.errors import (
     AppError,
     app_error_handler,
@@ -36,6 +37,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             await engine.dispose()
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
+    app.dependency_overrides[get_app_settings] = lambda: settings
 
     app.add_middleware(RequestLoggingMiddleware)
     app.add_exception_handler(AppError, app_error_handler)

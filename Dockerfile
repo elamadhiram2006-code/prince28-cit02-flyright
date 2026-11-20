@@ -19,6 +19,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # ---------- Stage 2: runtime image ----------
 FROM python:3.12-slim
+ARG GIT_SHA=dev
+ENV GIT_SHA=${GIT_SHA}
 
 RUN groupadd --system app && useradd --system --gid app --home-dir /app --no-create-home app
 WORKDIR /app
