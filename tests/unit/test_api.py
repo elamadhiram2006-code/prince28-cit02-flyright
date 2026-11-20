@@ -7,8 +7,17 @@ from flyright.config import Settings
 
 def test_health_is_ok(client):
     r = client.get("/health")
+
     assert r.status_code == 200
     assert r.json()["status"] == "ok"
+
+
+def test_health_returns_app_environment_and_version(client):
+    r = client.get("/health")
+
+    assert r.json()["app"] == "flyright"
+    assert r.json()["env"] == "ci"
+    assert r.json()["version"] == "dev"
 
 
 def test_ready_when_database_is_available(client):
