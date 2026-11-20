@@ -31,4 +31,7 @@ jobs:
         run: uv sync --locked --all-groups
 
       - name: Run tests
-        run: uv run poe test
+  run: uv run poe test
+  env:
+    APP_ENV: ci
+DATABASE_URL: postgresql+asyncpg://localhost:5432/app
