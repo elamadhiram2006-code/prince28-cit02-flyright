@@ -33,6 +33,8 @@ jobs:
         with:
           context: .
           push: true
+          build-args: |
+            GIT_SHA=${{ github.sha }}
           tags: ghcr.io/elamadhiram2006-code/flyright:latest
 
       - name: Trigger Render deployment
