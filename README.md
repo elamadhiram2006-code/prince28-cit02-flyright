@@ -1,4 +1,7 @@
 # FlyRight
+[![CI](https://github.com/elamadhiram2006-code/prince28-cit02-flyright/actions/workflows/ci.yml/badge.svg)](https://github.com/elamadhiram2006-code/prince28-cit02-flyright/actions/workflows/ci.yml)
+
+[![Live](https://img.shields.io/website?url=https%3A%2F%2Fflyright-api.onrender.com%2Fhealth&label=live)](https://flyright-api.onrender.com/docs)
 
 Explains air passenger rights in India (cancellation, delay, denied boarding, baggage, assistance) and what compensation applies, citing DGCA rules.
 
