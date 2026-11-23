@@ -142,3 +142,32 @@ Official policy pages:
 - India Code: https://indiacode.gov.in/
 
 These policies do not establish blanket permission for automated collection or permanent full-text storage.
+
+---
+
+## 8. Passenger CARs and Airline Conditions of Carriage
+
+### Updated source inventory
+
+The source inventory now contains 12 entries:
+
+- 10 existing government and institutional sources.
+- 1 IndiGo Conditions of Carriage source.
+- 1 Air India Conditions of Carriage source.
+
+### Airline access and reuse review
+
+| Publisher | Source | robots.txt | Download and storage permission |
+|---|---|---|---|
+| IndiGo | Conditions of Carriage | Not verified | Not verified |
+| Air India | Conditions of Carriage | Not verified | Not verified |
+
+The airline URLs have been added for source tracking only.
+
+Public availability does not establish permission for automated downloading, permanent storage, or reproduction.
+
+### Current decision
+
+Do not automatically download the airline documents until their access conditions and applicable reuse permissions have been checked.
+
+The Passenger CARs and two airline conditions-of-carriage sources are now represented in the source inventory.
