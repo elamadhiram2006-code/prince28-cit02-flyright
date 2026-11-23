@@ -56,7 +56,7 @@ jobs:
       - name: Trigger Render deployment
         env:
           RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
-          IMAGE: ghcr.io/${{ github.repository }}:sha-${{ steps.version.outputs.sha }}
+          IMAGE: ghcr.io/elamadhiram2006-code/flyright:sha-${{ steps.version.outputs.sha }}
         run: |
           ENCODED_IMAGE=$(python -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['IMAGE'], safe=''))")
           curl -fsS "${RENDER_DEPLOY_HOOK}&imgURL=${ENCODED_IMAGE}"
