@@ -1,4 +1,3 @@
-
 # Engineering Notes: FlyRight
 
 ## D03 · PostgreSQL
@@ -228,14 +227,14 @@ Live `/health` endpoint:
 
 https://flyright-api.onrender.com/health
 
-Verified response during initial deployment:
+Latest verified production response:
 
 ```json
 {
   "status": "ok",
   "app": "flyright",
   "env": "production",
-  "version": "afb4d93"
+  "version": "9c921e1"
 }
 ```
 
@@ -254,7 +253,7 @@ Verified response:
 }
 ```
 
-Both endpoints returned successful responses.
+Both endpoints returned successful responses. The latest health response confirmed that the production application was running and reported its deployed commit SHA.
 
 ### 3. Continuous Integration
 
@@ -279,7 +278,7 @@ The CI checks passed on the pull request and after merging.
 
 https://github.com/elamadhiram2006-code/prince28-cit02-flyright/actions/runs/45137072334
 
-**CI workflow duration:** 1 minute 23 seconds.
+CI workflow duration: 1 minute 23 seconds.
 
 ### 4. Continuous Deployment
 
@@ -297,9 +296,9 @@ The deployment workflow performs:
 
 The Render deployment hook and database URL are stored as GitHub Actions secrets.
 
-**First automatic CD deployment run:**
+**Automatic CD deployment run:**
 
-[Add the exact successful CD run link here.]
+https://github.com/elamadhiram2006-code/prince28-cit02-flyright/actions/runs/45139183085
 
 ### 5. Smoke Test
 
@@ -319,7 +318,7 @@ PR #8 was used as the older pre-CD image for the rollback drill.
 
 The manual CD workflow completed successfully.
 
-Verified live `/health` response:
+Verified `/health` response during the rollback drill:
 
 ```json
 {
@@ -334,11 +333,11 @@ The live application reported the expected older commit.
 
 ### 7. Roll Forward
 
-After the rollback drill, the application was rolled forward to the latest main commit.
+After the rollback drill, the application was rolled forward to commit `afb4d93`.
 
 **Roll-forward commit:** `afb4d93`
 
-Verified live `/health` response:
+Verified `/health` response during the roll-forward drill:
 
 ```json
 {
@@ -349,7 +348,9 @@ Verified live `/health` response:
 }
 ```
 
-The live application successfully returned to the latest main version.
+The application successfully returned to the version used for the roll-forward verification.
+
+The latest production version was subsequently verified separately in the health check section.
 
 ### 8. Why Was Rollback Safe?
 
@@ -373,18 +374,15 @@ UptimeRobot monitor:
 - Monitoring interval: Every 5 minutes.
 - Email alerts: Enabled.
 - Verified monitoring status: Up.
-- Uptime badge: 100% (30 days).
+- Previously verified uptime: 100% over 30 days.
 
 The uptime monitor checks the live health endpoint regularly.
 
 ### 11. Deployment Timing Evidence
 
-- CI workflow duration: 1 minute 23 seconds.
-- Merge clicked at: [Fill in time]
-- Smoke test passed at: [Fill in time]
-- Automatic deployment lead time: [Fill in minutes]
-- Rollback duration: [Fill in minutes]
-- Roll-forward duration: [Fill in minutes]
+The exact merge, smoke-test, rollback, and roll-forward timestamps and durations were not recorded in the available evidence.
+
+CI workflow duration: 1 minute 23 seconds.
 
 ### 12. Performance Improvement
 
