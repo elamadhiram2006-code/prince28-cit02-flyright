@@ -12,11 +12,10 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   test:
-    name: Run tests
+    name: lint and test
     runs-on: ubuntu-latest
 
     steps:
@@ -34,6 +33,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --all-groups
 
+      - name: Run lint
+        run: uv run poe lint
+
       - name: Run tests
         run: uv run poe test
         env:
@@ -42,7 +44,11 @@ jobs:
 
   image:
     name: build image
+    needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout repository
