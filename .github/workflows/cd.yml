@@ -8,6 +8,7 @@ on:
       - completed
     branches:
       - main
+
   workflow_dispatch:
     inputs:
       sha:
@@ -48,6 +49,7 @@ jobs:
 
       - name: Run database migrations
         env:
+          APP_ENV: production
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run alembic upgrade head
 
