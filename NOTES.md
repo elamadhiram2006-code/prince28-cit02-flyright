@@ -485,3 +485,54 @@ The live interruption-and-resume drill was not performed because publisher-speci
 No real source documents were downloaded during this verification.
 
 The expected live download, Ctrl+C interruption, resume counts and third-run skip counts remain pending permission confirmation.
+
+## D06 · Collecting the corpus
+
+### 1. Starting Target
+
+- Passenger CARs and two airlines' conditions of carriage (IndiGo and Air India).
+- Source list reviewed: 12 URLs (10 government/aviation information sources and 2 airline sources).
+- Collection status: **Not started; permission checks are incomplete.**
+
+### 2. Collection Measurements
+
+- Collected today: 0 files, 0 pages, 0 MB.
+- No source documents were downloaded, so no live corpus measurements are available.
+- The full-corpus target of 1,200+ pages is a planning estimate, not a measured collection.
+
+### 3. Access and Permission Review
+
+- Source list: `data/sources.csv`.
+- Government sources: reproduction and third-party rights must be checked for each publisher and document.
+- IndiGo: automated downloading, storage and reuse permission not confirmed.
+- Air India: express permission for downloading, storage and automated collection not confirmed.
+- Full-text display in answers: not approved for the airline documents.
+
+### 4. Robots.txt and Downloader Safety
+
+- The downloader checks robots.txt before requesting a source.
+- If robots rules cannot be retrieved reliably, the downloader blocks the request.
+- IndiGo robots.txt access was not verified; a 403 response was observed during the review.
+- DGCA robots.txt access remains unverified.
+- Air India's robots.txt was retrieved, but its rules must be checked against the exact document URL before any collection.
+- No blocked request was bypassed.
+
+### 5. Kill and Resume
+
+- Run 1: Not performed; no Ctrl+C interruption drill.
+- Run 2: Not performed.
+- Run 3: Not performed.
+- The existing automated tests cover manifest recording and skipping completed downloads; a real collection resume drill remains pending.
+
+### 6. Capacity Measurements
+
+- Tokens per page: Not measured.
+- Full corpus tokens: Not measured.
+- Full corpus chunks: Not measured.
+- Estimated embedding cost: Not measured.
+- Vector storage: Not measured.
+- The 1,200+ page full-corpus figure remains a planning target.
+
+### 7. What Went Wrong and How It Was Handled
+
+Automated collection permissions for the airline documents and some government sources were not confirmed. Collection was paused rather than treating public accessibility or robots.txt permission as copyright or reuse permission. The next step is to obtain the required publisher permissions and verify each source's access rules before downloading
