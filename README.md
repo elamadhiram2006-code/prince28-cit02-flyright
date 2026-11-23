@@ -65,3 +65,19 @@ Then open http://localhost:8000/docs
 uv run pytest
 uv run ruff check .
 ```
+
+## Run locally in one command
+
+Start the application and its supporting services using Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+The API will be available at:
+
+http://localhost:8000
+
+Health check:
+
+http://localhost:8000/health
