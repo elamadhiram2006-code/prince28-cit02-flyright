@@ -3,7 +3,7 @@
 
 [![CI](https://github.com/elamadhiram2006-code/prince28-cit02-flyright/actions/workflows/ci.yml/badge.svg)](https://github.com/elamadhiram2006-code/prince28-cit02-flyright/actions/workflows/ci.yml)
 
-[![Live](https://img.shields.io/website?url=https%3A%2F%2Fflyright-api.onrender.com%2Fhealth&label=live)](https://flyright-api.onrender.com/docs)
+[![Live](https://img.shields.io/website?url=https%3A%2F%2Fflyright-api.onrender.com%2Fhealth&label=live)](https://flyright-api.onrender.com/health)
 
 [![Uptime (30 days)](https://img.shields.io/uptimerobot/ratio/m804769583-7423807f86e22a431fb4b8f5)](https://flyright-api.onrender.com/health)
 
