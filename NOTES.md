@@ -1,3 +1,4 @@
+
 # Engineering Notes: FlyRight
 
 ## D03 · PostgreSQL
@@ -227,7 +228,7 @@ Live `/health` endpoint:
 
 https://flyright-api.onrender.com/health
 
-Verified response:
+Verified response during initial deployment:
 
 ```json
 {
@@ -274,9 +275,11 @@ The PostgreSQL integration tests were configured to run using a PostgreSQL servi
 
 The CI checks passed on the pull request and after merging.
 
-**CI run for the first required pull request:**
+**CI run for the pull request:**
 
-[Add the exact GitHub Actions run link here.]
+https://github.com/elamadhiram2006-code/prince28-cit02-flyright/actions/runs/45137072334
+
+**CI workflow duration:** 1 minute 23 seconds.
 
 ### 4. Continuous Deployment
 
@@ -370,11 +373,13 @@ UptimeRobot monitor:
 - Monitoring interval: Every 5 minutes.
 - Email alerts: Enabled.
 - Verified monitoring status: Up.
+- Uptime badge: 100% (30 days).
 
 The uptime monitor checks the live health endpoint regularly.
 
 ### 11. Deployment Timing Evidence
 
+- CI workflow duration: 1 minute 23 seconds.
 - Merge clicked at: [Fill in time]
 - Smoke test passed at: [Fill in time]
 - Automatic deployment lead time: [Fill in minutes]
