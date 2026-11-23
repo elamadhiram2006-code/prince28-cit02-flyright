@@ -35,6 +35,7 @@ jobs:
 
     env:
       APP_ENV: ci
+      DATABASE_URL: postgresql+asyncpg://app:app@localhost:5433/app_test # pragma: allowlist secret
       TEST_DATABASE_URL: postgresql://app:app@localhost:5433/app_test # pragma: allowlist secret
 
     steps:
