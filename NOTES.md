@@ -403,3 +403,85 @@ One improvement to make the first request faster would be to keep the Render ser
 - Rollback and roll-forward drills verified.
 - UptimeRobot monitoring configured.
 - GitHub main branch protection enabled.
+
+---
+
+## D06 · Downloader and Resume Verification
+
+### 1. Downloader Implementation
+
+- Added a polite, resumable downloader using HTTPX and Protego.
+- Added robots.txt checks before requesting documents.
+- Implemented retry handling, timeouts and per-host delays.
+- Added SHA-256 file hashing and atomic `.part` file handling.
+- Added JSONL manifest tracking.
+- Added CLI at `scripts/fetch.py`.
+
+Merged through PR #22.
+
+### 2. Resume and Manifest Tests
+
+Command:
+
+```powershell
+uv run pytest tests/unit/test_fetch.py -k "manifest_records_and_resumes or fetch_all_skips_existing_download or fetch_all_downloads_and_writes_manifest" -v
+```
+
+Result:
+
+```text
+3 passed, 16 deselected
+```
+
+Verified:
+- Completed downloads are recorded in the manifest.
+- Existing completed files are skipped.
+- Successful downloads are recorded.
+
+### 3. Download Integrity Tests
+
+Command:
+
+```powershell
+uv run pytest tests/unit/test_fetch.py -k "download_writes_file_and_hash or download_rejects_oversized_file" -v
+```
+
+Result:
+
+```text
+2 passed, 17 deselected
+```
+
+Verified successful file writing, hashing and oversized-file rejection.
+
+### 4. Partial File Check
+
+Command:
+
+```powershell
+Get-ChildItem data -Recurse -Filter *.part
+```
+
+Result: No `.part` files found in the project data directory.
+
+### 5. Complete Test Suite
+
+Command:
+
+```powershell
+uv run poe test
+```
+
+Result:
+
+```text
+36 passed in 0.57s
+```
+
+### 6. Real Download Interruption and Resume — Pending
+
+The live interruption-and-resume drill was not performed because publisher-specific automated download and storage permissions have not yet been confirmed.
+
+No real source documents were downloaded during this verification.
+
+The expected live download, Ctrl+C interruption, resume counts and third-run skip counts remain pending permission confirmation.
