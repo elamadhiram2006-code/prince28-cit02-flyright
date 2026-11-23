@@ -1,17 +1,15 @@
-# FlyRight – Project Requirements
 
-## Functional Requirements
+# FlyRight – Project Questions
 
-1. The system shall allow users to enter flight details and disruption information.
-2. The system shall identify passenger rights based on DGCA regulations.
-3. The system shall calculate applicable compensation based on cancellation and delay conditions.
-4. The system shall provide alternative travel options during flight disruptions.
-5. The system shall display relevant DGCA regulations and source references for every result.
-
-## Non-Functional Requirements
-
-1. **Accuracy:** The system shall achieve at least 95% accuracy across 40 test scenarios.
-2. **Performance:** The system shall generate results within 3 seconds under normal operating conditions.
-3. **Availability:** The system shall maintain at least 99% monthly uptime after deployment.
-4. **Security:** The system shall protect user information and API credentials.
-5. **Usability:** The system shall provide a simple, responsive interface accessible on desktop and mobile devices.
+| No. | Question |
+|---|---|
+| 1 | What passenger rights apply when a flight is cancelled? |
+| 2 | What compensation is available when an airline cancels a flight? |
+| 3 | What happens when a flight is delayed? |
+| 4 | How does the notice period affect passenger compensation? |
+| 5 | What are the passenger's rights when boarding is denied? |
+| 6 | What assistance must an airline provide to passengers? |
+| 7 | What are the rules for lost, delayed, or damaged baggage? |
+| 8 | How does an alternate flight affect compensation eligibility? |
+| 9 | Which DGCA regulations apply to different flight disruptions? |
+| 10 | How can passengers claim compensation from an airline? |
