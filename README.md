@@ -1,7 +1,11 @@
+
 # FlyRight
+
 [![CI](https://github.com/elamadhiram2006-code/prince28-cit02-flyright/actions/workflows/ci.yml/badge.svg)](https://github.com/elamadhiram2006-code/prince28-cit02-flyright/actions/workflows/ci.yml)
 
 [![Live](https://img.shields.io/website?url=https%3A%2F%2Fflyright-api.onrender.com%2Fhealth&label=live)](https://flyright-api.onrender.com/docs)
+
+[![Uptime (30 days)](https://img.shields.io/uptimerobot/ratio/m804769583-7423807f86e22a431fb4b8f5)](https://flyright-api.onrender.com/health)
 
 Explains air passenger rights in India (cancellation, delay, denied boarding, baggage, assistance) and what compensation applies, citing DGCA rules.
 
@@ -42,10 +46,14 @@ Entitlement correct for 95%+ of 40 test scenarios.
 
 ```bash
 docker compose up --build -d
+```
+
+### Using uv
 
 ```bash
 uv sync
-cp .env.example .env   # Windows: copy .env.example .env
+cp .env.example .env
+# Windows: copy .env.example .env
 uv run uvicorn flyright.api.main:create_app --factory --reload
 ```
 
