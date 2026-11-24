@@ -1,78 +1,61 @@
-\# Capacity plan: FlyRight
 
+# Capacity Plan: FlyRight
 
+Full corpus target: All relevant CARs, revisions and four airlines' terms (1,200+ pages).
 
-Full corpus target: + all relevant CARs, revisions and 4 airlines' terms (1,200+ pages)
+## Measured on the current corpus
 
+Measurement date: 2026-11-24
 
-
-<!-- generated:start -->
-## Measured on my start corpus (2026-11-24 15:30 UTC)
-
-| What | Value |
-|---|---|
-| Files | 6 |
-| Size on disk | 32.3 MB |
-| Pages (PDF pages + 1 per 3,000 characters of text/HTML) | 34 |
-| Characters of text | 50,940 |
-| Estimated tokens (characters / 4) | 12,735 |
-| Tokens per page | 372 |
-| PDFs with almost no text (scanned? OCR is Day 7) | 2 |
-| Files not measured (zip, xlsx, unreadable) | 1 |
-
-## Estimate for the full corpus (target: 1,200 pages)
-
-| What | How | Value |
-|---|---|---|
-| Scale factor | target / measured | x 35.0 |
-| Tokens | measured tokens x scale | 0.45 M |
-| Raw files | measured MB x scale | 1,133 MB |
-| Chunks | tokens / 400 x 1.15 overlap | 1,283 |
-| Embedding cost, one time | tokens x 1.15 x $0.15 per 1M | $0.08 = Rs 7 |
-| Vector storage | chunks x 768 numbers x 4 bytes | 4 MB |
-| Text in Postgres | characters x scale x 1.2 | 2 MB |
-
-Assumptions: 4 characters per token, 400-token chunks, 768-dimension embeddings at $0.15 per 1M tokens, Rs 95 per US dollar.
-<!-- generated:end -->
-
-
-
-\## What I conclude
-
-
-
-1\. Is embedding cost a problem for this product? (1 line, with the number)
-
-2\. Do the vectors and text fit in my free Postgres? (1 line: compare with the storage limit on my database dashboard)
-
-3\. Which number above am I least sure about, and how will I measure it better? (1 line)
-
-4\. What changes if the corpus grows 10 times? (2 lines)
-
-<!-- BEGIN GENERATED CONTENT -->
-
-**Last updated:** 2026-11-24
-
-## Corpus measurements
-
-| Metric | Current value |
+| Metric | Measured value |
 |---|---:|
-| Unique documents | 4 |
+| Valid unique documents | 4 |
 | Total pages | 134 |
 | Total characters | 192,381 |
 | Estimated tokens | 28,084 |
-| Total size | 30.42 MiB |
+| Size on disk | 30.42 MiB |
 | Unavailable or excluded sources | 8 |
 
-## Capacity targets
+## Estimate for the full corpus
+
+Target: 1,200 pages.
+
+Assumptions:
+- 4 characters per token (approximation).
+- 400-token chunks.
+- 15% chunk overlap.
+- 768-dimensional embeddings.
+- 4 bytes per vector dimension.
+- Embedding price assumption: $0.15 per million tokens.
+- Exchange-rate assumption: Rs 95 per US dollar.
+
+| Metric | Calculation | Estimate |
+|---|---|---:|
+| Scale factor | 1,200 / 134 | 8.96x |
+| Estimated tokens | 28,084 x 8.96 | 251,600 |
+| Raw files | 30.42 MiB x 8.96 | 272.5 MiB |
+| Chunks | 251,600 / 400 x 1.15 | 723 |
+| One-time embedding cost | 251,600 x 1.15 x $0.15 / 1M | $0.044 (about Rs 4.20) |
+| Vector storage | 723 x 768 x 4 bytes | 2.12 MiB |
+| Text storage | 192,381 x 8.96 x 1.2 bytes | 1.98 MiB |
+
+These are planning estimates, not measured production storage or billing figures. Actual database overhead, indexes and embedding dimensions may change the result.
+
+## What I conclude
+
+1. **Is embedding cost a problem?** No. At the 1,200-page target, the estimated one-time embedding cost is approximately $0.044 (Rs 4.20), using the stated pricing assumption.
+
+2. **Do vectors and text fit in free Postgres?** The estimated vector and text payload is approximately 4.1 MiB. This should be compared with the actual storage limit and current usage shown in the database dashboard before confirming.
+
+3. **Which number am I least sure about?** Estimated tokens are uncertain because PDF text extraction, scanned pages and OCR can change token counts. I will improve this by measuring extracted text and actual tokenizer output for every document.
+
+4. **What changes if the corpus grows 10 times?** Token volume, chunk count, embedding cost and storage requirements will grow approximately 10 times, assuming similar documents. I will need to monitor PostgreSQL storage, indexing performance and embedding costs as the corpus expands.
+
+## Current progress
 
 | Target | Goal | Current | Progress |
 |---|---:|---:|---:|
-| Full pages | 1,200 | 134 | 11.2% |
-| Full files | 2,500 | 4 | 0.2% |
+| Pages | 1,200 | 134 | 11.2% |
+| Files | 2,500 | 4 | 0.16% |
 
-## Status
-
-Corpus targets have not yet been reached. Continue collecting permitted, relevant documents.
-
-<!-- END GENERATED CONTENT -->
+The corpus targets have not yet been reached. Continue collecting only permitted and relevant documents.
