@@ -4,6 +4,8 @@ Examples:
     uv run python scripts/dataset_report.py --full-pages 1200
     uv run python scripts/dataset_report.py --full-files 2500
 
+PDF page counts are measured independently from text extraction so that
+malformed font encodings cannot prevent a document from being counted.
 Only the content between generated markers is replaced.
 """
 
@@ -22,11 +24,14 @@ MANIFEST = ROOT / "data" / "manifest.jsonl"
 DATASET_FILE = ROOT / "DATASET.md"
 CAPACITY_FILE = ROOT / "docs" / "CAPACITY.md"
 
-# These are DGCA homepage fallback files, not passenger documents.
 INVALID_HTML_FILENAMES = {
     "digigov-portal-4fd04e37.html",
     "digigov-portal-e95b6f2d.html",
 }
+
+# Large PDFs can contain complex font maps that make pypdf extraction
+# extremely slow. Page counts are still measured for these documents.
+LARGE_PDF_TEXT_LIMIT = 20 * 1024 * 1024
 
 
 class VisibleText(HTMLParser):
@@ -67,6 +72,31 @@ def sha256_file(path):
     return digest.hexdigest()
 
 
+def extract_pdf_text(path, reader):
+    """Extract PDF text safely, without sacrificing its page count."""
+
+    text_parts = []
+    failures = 0
+
+    for page_number, page in enumerate(reader.pages, start=1):
+        try:
+            text_parts.append(page.extract_text() or "")
+        except Exception as exc:
+            failures += 1
+            logging.warning(
+                "Text extraction failed for %s, page %s: %s",
+                path.name,
+                page_number,
+                exc,
+            )
+
+    note = ""
+    if failures:
+        note = f"Text extraction failed on {failures} page(s)."
+
+    return "\n".join(text_parts), note
+
+
 def measure(path):
     """Measure pages, characters and estimated tokens."""
 
@@ -83,15 +113,22 @@ def measure(path):
         if suffix == ".pdf":
             from pypdf import PdfReader
 
-            reader = PdfReader(str(path))
+            reader = PdfReader(str(path), strict=False)
+
+            # Count pages before attempting any text extraction.
             result["pages"] = len(reader.pages)
 
-            text_parts = []
+            file_size = path.stat().st_size
 
-            for page in reader.pages:
-                text_parts.append(page.extract_text() or "")
+            if file_size > LARGE_PDF_TEXT_LIMIT:
+                result["note"] = (
+                    "Page count measured; text extraction skipped "
+                    "because the PDF exceeds the safe extraction size."
+                )
+                return result
 
-            content = "\n".join(text_parts)
+            content, note = extract_pdf_text(path, reader)
+            result["note"] = note
 
         elif suffix in {".html", ".htm"}:
             parser = VisibleText()
@@ -112,7 +149,7 @@ def measure(path):
 
     except Exception as exc:
         logging.warning("Could not measure %s: %s", path, exc)
-        result["note"] = str(exc)
+        result["note"] = f"Measurement error: {exc}"
 
     return result
 
@@ -126,7 +163,7 @@ def load_records():
 
     latest = {}
 
-    with MANIFEST.open("r", encoding="utf-8") as file:
+    with MANIFEST.open("r", encoding="utf-8-sig") as file:
         for line_number, line in enumerate(file, start=1):
             if not line.strip():
                 continue
@@ -153,11 +190,7 @@ def measure_all(records):
     cache = {}
 
     for record in records:
-        path = Path(record["path"])
-
-        if not path.is_absolute():
-            path = ROOT / path
-
+        path = record["_resolved_path"]
         file_hash = record.get("sha256")
 
         if not file_hash:
@@ -188,15 +221,18 @@ def dataset_block(done, not_done, today):
         "",
         "## Downloaded documents",
         "",
-        "| Document | Source | Pages | Size (bytes) |",
-        "|---|---|---:|---:|",
+        "| Document | Source | Pages | Size (bytes) | Measurement note |",
+        "|---|---|---:|---:|---|",
     ]
 
     for record in done:
         title = record.get("title", "Untitled").replace("|", "\\|")
         source = record.get("source", "Unknown").replace("|", "\\|")
+        note = record.get("measurement_note", "").replace("|", "\\|")
 
-        lines.append(f"| {title} | {source} | {record['pages']:,} | {record.get('bytes', 0):,} |")
+        lines.append(
+            f"| {title} | {source} | {record['pages']:,} | {record.get('bytes', 0):,} | {note} |"
+        )
 
     lines.extend(
         [
@@ -351,7 +387,6 @@ def main():
         print("No manifest records found.")
         return 1
 
-    # Find all downloaded files that still exist.
     downloaded = []
 
     for record in records:
@@ -367,7 +402,6 @@ def main():
             record["_resolved_path"] = path
             downloaded.append(record)
 
-    # Exclude known DGCA homepage fallback HTML files.
     invalid = []
 
     for record in downloaded:
@@ -378,7 +412,6 @@ def main():
 
     invalid_urls = {record.get("url") for record in invalid}
 
-    # Deduplicate files using SHA-256.
     seen_hashes = set()
     done = []
 
@@ -397,7 +430,6 @@ def main():
         seen_hashes.add(file_hash)
         done.append(record)
 
-    # Collect failed, blocked, missing and excluded sources.
     not_done = []
 
     for record in records:
@@ -417,7 +449,6 @@ def main():
         print("No valid downloaded documents available to measure.")
         return 1
 
-    # Measure all valid unique documents.
     measure_all(done)
 
     if not sum(record["pages"] for record in done):
@@ -438,8 +469,11 @@ def main():
         f"files={len(done)} pages={total_pages} excluded={len(invalid)} unavailable={len(not_done)}"
     )
 
-    print("Updated DATASET.md and docs/CAPACITY.md")
+    for record in done:
+        if record.get("measurement_note"):
+            print(f"note: {record.get('title', 'Untitled')}: {record['measurement_note']}")
 
+    print("Updated DATASET.md and docs/CAPACITY.md")
     return 0
 
 

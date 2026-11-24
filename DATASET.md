@@ -64,20 +64,22 @@ The corpus targets have not yet been reached. Continue collecting only permitted
 
 **Last updated:** 2026-11-24
 
-- Unique valid documents: **4**
-- Total pages: **134**
+- Unique valid documents: **6**
+- Total pages: **588**
 - Total characters: **192,381**
 - Estimated tokens: **28,084**
 - Unavailable or excluded sources: **8**
 
 ## Downloaded documents
 
-| Document | Source | Pages | Size (bytes) |
-|---|---|---:|---:|
-| Passenger Denied Boarding Cancellation and Delay CAR | dgca | 8 | 285,108 |
-| Refund of Airline Tickets CAR | dgca | 3 | 2,754,578 |
-| Persons with Disability and Reduced Mobility CAR | dgca | 13 | 11,350,288 |
-| Accessibility Standards and Guidelines for Civil Aviation 2022 | dgca | 110 | 17,503,869 |
+| Document | Source | Pages | Size (bytes) | Measurement note |
+|---|---|---:|---:|---|
+| Passenger Denied Boarding Cancellation and Delay CAR | dgca | 8 | 285,108 |  |
+| Refund of Airline Tickets CAR | dgca | 3 | 2,754,578 |  |
+| Persons with Disability and Reduced Mobility CAR | dgca | 13 | 11,350,288 |  |
+| Accessibility Standards and Guidelines for Civil Aviation 2022 | dgca | 110 | 17,503,869 |  |
+| Ministry of Civil Aviation Annual Report 2024-25 | moca | 176 | 40,433,732 | Page count measured; text extraction skipped because the PDF exceeds the safe extraction size. |
+| Ministry of Civil Aviation Annual Report 2023-24 | moca | 278 | 77,483,597 | Page count measured; text extraction skipped because the PDF exceeds the safe extraction size. |
 
 ## Sources not included in the corpus
 
