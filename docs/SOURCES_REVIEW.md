@@ -194,3 +194,28 @@ No robots restrictions were bypassed. No corpus documents were downloaded during
 ### Collection decision
 
 Automated collection remains paused until access rules and document reuse permissions are verified for each source. Written permission is still required where applicable, particularly for airline documents.
+
+## 10. Browser URL verification — 2026-11-24
+
+The 12 source URLs were checked manually in a browser.
+
+| # | Publisher | Document | Browser observation |
+|---|---|---|---|
+| 1 | DGCA | Passenger Denied Boarding, Cancellation and Delay CAR | Opened |
+| 2 | DGCA | Refund of Airline Tickets CAR | Opened |
+| 3 | DGCA | Persons with Disability and Reduced Mobility CAR | Opened |
+| 4 | DGCA | Accessibility Standards and Guidelines 2022 | Opened |
+| 5 | India Code | The Carriage by Air Act 1972 | Kept loading; not verified |
+| 6 | MoCA | Passenger Charter | Opened |
+| 7 | PIB | Passenger Compensation Guidelines | Opened |
+| 8 | DGCA | Passenger Baggage Rules | Background appeared; content kept loading |
+| 9 | MoCA | Passenger Grievance | Opened |
+| 10 | DGCA | Passenger Information FAQs | Background appeared; content kept loading |
+| 11 | IndiGo | Conditions of Carriage | Opened |
+| 12 | Air India | Conditions of Carriage | Opened |
+
+Nine URLs opened in the browser. Three did not fully load.
+
+These are browser observations only. They do not confirm direct-file availability, automated access permission, storage permission, or permission to reproduce content in answers.
+
+Automated collection remains paused pending access and reuse permission verification.
