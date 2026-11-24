@@ -1,12 +1,7 @@
 """Polite, resumable downloader for your corpus.
 
-The rules it follows, in order:
-1. Ask robots.txt first (RFC 9309). Not allowed means never requested.
-2. At most `max_concurrency` downloads at once, and a pause between two requests to one site.
-3. A timeout on every request. Only errors that can heal are retried (429, 5xx, network),
-   with exponential backoff + jitter, and Retry-After is obeyed.
-4. Write to <name>.part and rename when complete: a killed run never leaves a half file.
-5. One line per file in data/manifest.jsonl, so the next run skips what is already there.
+Downloads only sources with explicit download approval.
+Checks robots.txt before requesting source documents.
 """
 
 import asyncio
@@ -36,9 +31,24 @@ MAX_BYTES = 200 * 1024 * 1024
 ATTEMPT_TIMEOUT = 300.0
 
 KNOWN_EXT = {
-    ".pdf", ".html", ".htm", ".json", ".txt", ".md", ".mdx", ".rst", ".adoc", ".csv",
-    ".xml", ".yaml", ".yml", ".zip", ".docx", ".xlsx", ".xls",
-}  # fmt: skip
+    ".pdf",
+    ".html",
+    ".htm",
+    ".json",
+    ".txt",
+    ".md",
+    ".mdx",
+    ".rst",
+    ".adoc",
+    ".csv",
+    ".xml",
+    ".yaml",
+    ".yml",
+    ".zip",
+    ".docx",
+    ".xlsx",
+    ".xls",
+}
 
 EXT_BY_TYPE = {
     "application/pdf": ".pdf",
@@ -62,6 +72,7 @@ class Source:
     source: str
     licence: str
     title: str = ""
+    download_approved: bool = False
 
 
 class DownloadError(Exception):
@@ -82,16 +93,17 @@ def now_iso() -> str:
 
 
 def slug(text: str, limit: int = 60) -> str:
-    """Lowercase letters, digits and dashes only: safe on Windows, Mac and Linux."""
+    """Create a safe filename or directory name."""
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:limit] or "file"
 
 
 def file_stem(url: str) -> str:
-    """A stable file name for a URL: a readable part + 8 characters of the URL's hash."""
+    """Create a stable filename from a URL."""
     parts = urlsplit(url)
     last = unquote(parts.path.rstrip("/").rsplit("/", 1)[-1]) or parts.netloc
     name = last.rsplit(".", 1)[0] if "." in last else last
-    return f"{slug(name)}-{hashlib.sha256(url.encode()).hexdigest()[:8]}"
+    digest = hashlib.sha256(url.encode()).hexdigest()[:8]
+    return f"{slug(name)}-{digest}"
 
 
 def pick_ext(url: str, content_type: str) -> str:
@@ -112,37 +124,51 @@ def backoff_delay(
 
 
 def retry_after_seconds(value: str | None) -> float | None:
-    """The Retry-After header is either seconds or an HTTP date."""
+    """Parse Retry-After as seconds or an HTTP date."""
     if not value:
         return None
+
     value = value.strip()
     if value.isdigit():
         return float(value)
+
     try:
         when = parsedate_to_datetime(value)
     except (TypeError, ValueError):
         return None
+
     if when.tzinfo is None:
         when = when.replace(tzinfo=UTC)
+
     return max(0.0, (when - datetime.now(UTC)).total_seconds())
 
 
 def read_sources(path: Path) -> list[Source]:
-    """Read data/sources.csv. Lines starting with # are notes."""
+    """Read sources.csv. Lines starting with # are notes."""
     sources: list[Source] = []
     seen: set[str] = set()
 
     with path.open(encoding="utf-8-sig", newline="") as handle:
         lines = (line for line in handle if line.strip() and not line.lstrip().startswith("#"))
+
         for number, row in enumerate(csv.DictReader(lines), start=1):
             url = (row.get("url") or "").strip()
             name = (row.get("source") or "").strip()
             licence = (row.get("licence") or "").strip()
 
+            approved_text = (row.get("download_approved") or "false").strip().lower()
+
+            if approved_text not in {"true", "false"}:
+                raise ValueError(f"sources row {number}: download_approved must be true or false")
+
+            download_approved = approved_text == "true"
+
             if urlsplit(url).scheme not in {"http", "https"}:
                 raise ValueError(f"sources row {number}: not an http(s) URL: {url!r}")
+
             if not name or not licence:
                 raise ValueError(f"sources row {number}: source and licence are required: {url}")
+
             if url not in seen:
                 seen.add(url)
                 sources.append(
@@ -151,6 +177,7 @@ def read_sources(path: Path) -> list[Source]:
                         name,
                         licence,
                         (row.get("title") or "").strip(),
+                        download_approved,
                     )
                 )
 
@@ -158,7 +185,7 @@ def read_sources(path: Path) -> list[Source]:
 
 
 class Manifest:
-    """Append-only log: one JSON line per file. The newest line for a URL wins."""
+    """Append-only log: newest record for a URL wins."""
 
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -166,11 +193,13 @@ class Manifest:
 
         if path.exists():
             text = path.read_text(encoding="utf-8")
+
             for line in text.splitlines():
                 try:
                     record = json.loads(line)
                 except json.JSONDecodeError:
                     continue
+
                 self.records[record["url"]] = record
 
             if text and not text.endswith("\n"):
@@ -186,12 +215,13 @@ class Manifest:
     def add(self, record: dict) -> None:
         self.records[record["url"]] = record
         self.path.parent.mkdir(parents=True, exist_ok=True)
+
         with self.path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 class Robots:
-    """robots.txt for each site: fetched once per run, applied the RFC 9309 way."""
+    """Fetch robots.txt once per origin and apply its rules."""
 
     def __init__(self, client: httpx.AsyncClient) -> None:
         self._client = client
@@ -206,10 +236,11 @@ class Robots:
 
         if response.status_code >= 400:
             return None
+
         return Protego.parse(response.text)
 
     async def check(self, url: str) -> tuple[bool, float]:
-        """Return (allowed?, the crawl delay the site asks for in seconds)."""
+        """Return whether the URL is allowed and its crawl delay."""
         parts = urlsplit(url)
         origin = f"{parts.scheme}://{parts.netloc}"
 
@@ -218,6 +249,7 @@ class Robots:
                 self._rules[origin] = await self._load(origin)
 
         rules = self._rules[origin]
+
         if rules is None:
             return False, 0.0
 
@@ -228,7 +260,7 @@ class Robots:
 
 
 class HostGate:
-    """Politeness: leave a gap between two requests to the same site."""
+    """Leave a gap between requests to the same host."""
 
     def __init__(self, delay: float, sleep: Sleep) -> None:
         self._delay = delay
@@ -239,8 +271,10 @@ class HostGate:
     async def wait(self, host: str, crawl_delay: float = 0.0) -> None:
         async with self._locks.setdefault(host, asyncio.Lock()):
             pause = self._next_ok.get(host, 0.0) - time.monotonic()
+
             if pause > 0:
                 await self._sleep(pause)
+
             self._next_ok[host] = time.monotonic() + max(
                 self._delay,
                 crawl_delay,
@@ -262,7 +296,7 @@ async def _download(
     root: Path,
     raw_dir: Path,
 ) -> dict:
-    """One attempt. Streams to <name>.part and renames when complete."""
+    """Stream one download to a temporary file, then rename it."""
     async with client.stream("GET", src.url) as response:
         if response.status_code != 200:
             raise DownloadError(
@@ -275,19 +309,24 @@ async def _download(
         name = file_stem(src.url) + pick_ext(src.url, content_type)
         target = raw_dir / slug(src.source) / name
         target.parent.mkdir(parents=True, exist_ok=True)
+
         part = target.with_name(name + ".part")
-        digest, size = hashlib.sha256(), 0
+        digest = hashlib.sha256()
+        size = 0
 
         try:
             with part.open("wb") as handle:
                 async for chunk in response.aiter_bytes():
                     size += len(chunk)
+
                     if size > MAX_BYTES:
                         raise DownloadError(f"larger than {MAX_BYTES // 2**20} MB")
+
                     digest.update(chunk)
                     handle.write(chunk)
 
             part.replace(target)
+
         finally:
             part.unlink(missing_ok=True)
 
@@ -312,16 +351,26 @@ async def fetch_one(
     max_attempts: int,
     sleep: Sleep,
 ) -> dict:
-    """Download one source with retries. Always returns a manifest record."""
+    """Download one approved source with retries."""
     record = {
         "url": src.url,
         "source": src.source,
         "licence": src.licence,
         "title": src.title,
+        "download_approved": src.download_approved,
         "via": "http",
     }
 
+    # Permission check happens before any robots or document request.
+    if not src.download_approved:
+        return record | {
+            "status": "blocked",
+            "error": "download permission not approved",
+            "fetched_at": now_iso(),
+        }
+
     allowed, crawl_delay = await robots.check(src.url)
+
     if not allowed:
         return record | {
             "status": "blocked",
@@ -337,6 +386,7 @@ async def fetch_one(
 
         async with slots:
             await gate.wait(host, crawl_delay)
+
             try:
                 async with asyncio.timeout(ATTEMPT_TIMEOUT):
                     fields = await _download(client, src, root, raw_dir)
@@ -346,10 +396,12 @@ async def fetch_one(
                     "attempts": attempt,
                     "fetched_at": now_iso(),
                 }
+
                 return record | fields | done
 
             except DownloadError as exc:
                 error, code = str(exc), exc.code
+
                 if code not in RETRYABLE:
                     break
 
@@ -357,6 +409,7 @@ async def fetch_one(
                     if exc.retry_after > MAX_WAIT:
                         error = f"{error}: asked to wait {exc.retry_after:.0f} s, run again later"
                         break
+
                     wait = max(wait, exc.retry_after)
 
             except (httpx.TransportError, TimeoutError) as exc:
@@ -375,6 +428,7 @@ async def fetch_one(
         "error": error,
         "attempts": attempt,
     }
+
     return record | failed | {"fetched_at": now_iso()}
 
 
@@ -389,9 +443,10 @@ async def fetch_all(
     sleep: Sleep = asyncio.sleep,
     on_result: Callable[[dict], None] | None = None,
 ) -> dict[str, int]:
-    """Download every source that is not already done. Returns status counts."""
+    """Download approved sources that are not already downloaded."""
     raw_dir = root / "data" / "raw"
     manifest = Manifest(root / "data" / "manifest.jsonl")
+
     todo = [src for src in sources if not manifest.done(src.url, root)]
 
     counts = {
@@ -403,6 +458,7 @@ async def fetch_all(
 
     own_client = client is None
     client = client or make_client(max_concurrency)
+
     robots = Robots(client)
     gate = HostGate(per_host_delay, sleep)
     slots = asyncio.Semaphore(max_concurrency)
@@ -430,6 +486,7 @@ async def fetch_all(
             counts[record["status"]] += 1
 
             before = manifest.records.get(record["url"], {})
+
             same_problem = (
                 before.get("status"),
                 before.get("error"),

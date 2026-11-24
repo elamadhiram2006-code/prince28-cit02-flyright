@@ -158,7 +158,11 @@ async def test_download_writes_file_and_hash(tmp_path):
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         result = await _download(
             client,
-            Source("https://example.com/rules.pdf", "DGCA", "review pending"),
+            Source(
+                "https://example.com/rules.pdf",
+                "DGCA",
+                "review pending",
+            ),
             tmp_path,
             tmp_path / "data" / "raw",
         )
@@ -184,7 +188,11 @@ async def test_download_rejects_oversized_file(tmp_path, monkeypatch):
         with pytest.raises(Exception, match="larger than"):
             await _download(
                 client,
-                Source("https://example.com/file.txt", "DGCA", "review pending"),
+                Source(
+                    "https://example.com/file.txt",
+                    "DGCA",
+                    "review pending",
+                ),
                 tmp_path,
                 tmp_path / "data" / "raw",
             )
@@ -204,7 +212,12 @@ async def test_fetch_one_records_robots_block(tmp_path):
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         record = await fetch_one(
             client,
-            Source("https://example.com/file.pdf", "DGCA", "review pending"),
+            Source(
+                "https://example.com/file.pdf",
+                "DGCA",
+                "review pending",
+                download_approved=True,
+            ),
             root=tmp_path,
             raw_dir=tmp_path / "data" / "raw",
             robots=Robots(client),
@@ -224,11 +237,16 @@ async def test_fetch_one_retries_server_error(tmp_path):
 
     def handler(request):
         if request.url.path == "/robots.txt":
-            return httpx.Response(200, text="User-agent: *\nAllow: /\n")
+            return httpx.Response(
+                200,
+                text="User-agent: *\nAllow: /\n",
+            )
 
         requests["file"] += 1
+
         if requests["file"] == 1:
             return httpx.Response(503)
+
         return httpx.Response(200, content=b"document")
 
     async def no_sleep(seconds):
@@ -237,7 +255,12 @@ async def test_fetch_one_retries_server_error(tmp_path):
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         record = await fetch_one(
             client,
-            Source("https://example.com/file.txt", "DGCA", "review pending"),
+            Source(
+                "https://example.com/file.txt",
+                "DGCA",
+                "review pending",
+                download_approved=True,
+            ),
             root=tmp_path,
             raw_dir=tmp_path / "data" / "raw",
             robots=Robots(client),
@@ -258,7 +281,11 @@ async def test_fetch_one_does_not_retry_permanent_error(tmp_path):
 
     def handler(request):
         if request.url.path == "/robots.txt":
-            return httpx.Response(200, text="User-agent: *\nAllow: /\n")
+            return httpx.Response(
+                200,
+                text="User-agent: *\nAllow: /\n",
+            )
+
         requests["file"] += 1
         return httpx.Response(404)
 
@@ -268,7 +295,12 @@ async def test_fetch_one_does_not_retry_permanent_error(tmp_path):
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         record = await fetch_one(
             client,
-            Source("https://example.com/missing.pdf", "DGCA", "review pending"),
+            Source(
+                "https://example.com/missing.pdf",
+                "DGCA",
+                "review pending",
+                download_approved=True,
+            ),
             root=tmp_path,
             raw_dir=tmp_path / "data" / "raw",
             robots=Robots(client),
@@ -290,6 +322,7 @@ async def test_fetch_all_skips_existing_download(tmp_path):
         "DGCA",
         "review pending",
     )
+
     saved = tmp_path / "data" / "raw" / "dgca" / "existing.pdf"
     saved.parent.mkdir(parents=True)
     saved.write_bytes(b"already downloaded")
@@ -307,7 +340,11 @@ async def test_fetch_all_skips_existing_download(tmp_path):
         pytest.fail("A completed download must not make another request")
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        counts = await fetch_all([source], root=tmp_path, client=client)
+        counts = await fetch_all(
+            [source],
+            root=tmp_path,
+            client=client,
+        )
 
     assert counts["skipped"] == 1
     assert counts["downloaded"] == 0
@@ -320,11 +357,16 @@ async def test_fetch_all_downloads_and_writes_manifest(tmp_path):
         "DGCA",
         "review pending",
         "New document",
+        download_approved=True,
     )
 
     def handler(request):
         if request.url.path == "/robots.txt":
-            return httpx.Response(200, text="User-agent: *\nAllow: /\n")
+            return httpx.Response(
+                200,
+                text="User-agent: *\nAllow: /\n",
+            )
+
         return httpx.Response(200, content=b"new document")
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
@@ -351,7 +393,10 @@ async def test_fetch_all_counts_blocked_sources(tmp_path):
     )
 
     def handler(request):
-        return httpx.Response(200, text="User-agent: *\nDisallow: /\n")
+        return httpx.Response(
+            200,
+            text="User-agent: *\nDisallow: /\n",
+        )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         counts = await fetch_all(
@@ -367,6 +412,7 @@ async def test_fetch_all_counts_blocked_sources(tmp_path):
 def test_make_client_sets_user_agent_and_limits():
     async def check():
         client = make_client(max_concurrency=2)
+
         try:
             assert "User-Agent" in client.headers
             assert client.timeout.connect == 10.0
@@ -387,3 +433,33 @@ async def test_robots_fails_closed_on_http_error(status_code):
         allowed, _ = await robots.check("https://example.com/file.pdf")
 
     assert not allowed
+
+
+@pytest.mark.asyncio
+async def test_fetch_one_blocks_unapproved_source(tmp_path):
+    def handler(request):
+        pytest.fail("Unapproved sources must not make network requests")
+
+    async def no_sleep(seconds):
+        return None
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        record = await fetch_one(
+            client,
+            Source(
+                "https://example.com/unapproved.pdf",
+                "DGCA",
+                "review pending",
+            ),
+            root=tmp_path,
+            raw_dir=tmp_path / "data" / "raw",
+            robots=Robots(client),
+            gate=HostGate(0, no_sleep),
+            slots=asyncio.Semaphore(1),
+            max_attempts=2,
+            sleep=no_sleep,
+        )
+
+    assert record["status"] == "blocked"
+    assert record["error"] == "download permission not approved"
+    assert record["download_approved"] is False
