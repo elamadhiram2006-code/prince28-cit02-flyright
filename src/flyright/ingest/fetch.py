@@ -204,10 +204,8 @@ class Robots:
         except httpx.HTTPError:
             return None
 
-        if response.status_code == 429 or response.status_code >= 500:
-            return None
         if response.status_code >= 400:
-            return Protego.parse("")
+            return None
         return Protego.parse(response.text)
 
     async def check(self, url: str) -> tuple[bool, float]:

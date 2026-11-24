@@ -374,3 +374,16 @@ def test_make_client_sets_user_agent_and_limits():
             await client.aclose()
 
     asyncio.run(check())
+
+
+@pytest.mark.parametrize("status_code", [403, 404, 503])
+@pytest.mark.asyncio
+async def test_robots_fails_closed_on_http_error(status_code):
+    def handler(request):
+        return httpx.Response(status_code)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        robots = Robots(client)
+        allowed, _ = await robots.check("https://example.com/file.pdf")
+
+    assert not allowed
