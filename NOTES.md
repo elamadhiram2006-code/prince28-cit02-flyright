@@ -1,3 +1,4 @@
+
 # Engineering Notes: FlyRight
 
 ## D03 · PostgreSQL
@@ -227,7 +228,7 @@ Live `/health` endpoint:
 
 https://flyright-api.onrender.com/health
 
-Latest verified production response:
+Latest previously verified production response:
 
 ```json
 {
@@ -253,7 +254,7 @@ Verified response:
 }
 ```
 
-Both endpoints returned successful responses. The latest health response confirmed that the production application was running and reported its deployed commit SHA.
+Both endpoints returned successful responses during the recorded verification.
 
 ### 3. Continuous Integration
 
@@ -350,8 +351,6 @@ Verified `/health` response during the roll-forward drill:
 
 The application successfully returned to the version used for the roll-forward verification.
 
-The latest production version was subsequently verified separately in the health check section.
-
 ### 8. Why Was Rollback Safe?
 
 The rollback workflow skips database migrations, so the database remains on the newer schema.
@@ -373,7 +372,6 @@ UptimeRobot monitor:
 - URL: https://flyright-api.onrender.com/health
 - Monitoring interval: Every 5 minutes.
 - Email alerts: Enabled.
-- Verified monitoring status: Up.
 - Previously verified uptime: 100% over 30 days.
 
 The uptime monitor checks the live health endpoint regularly.
@@ -416,43 +414,51 @@ One improvement to make the first request faster would be to keep the Render ser
 - Added SHA-256 file hashing and atomic `.part` file handling.
 - Added JSONL manifest tracking.
 - Added CLI at `scripts/fetch.py`.
+- Added permission checks before downloading sources.
+- Supports HTTP Range requests for resuming partial downloads.
 
-Merged through PR #22.
+The resumable downloader changes were merged through PR #34.
 
-### 2. Resume and Manifest Tests
-
-Command:
-
-```powershell
-uv run pytest tests/unit/test_fetch.py -k "manifest_records_and_resumes or fetch_all_skips_existing_download or fetch_all_downloads_and_writes_manifest" -v
-```
-
-Result:
-
-```text
-3 passed, 16 deselected
-```
-
-Verified:
-- Completed downloads are recorded in the manifest.
-- Existing completed files are skipped.
-- Successful downloads are recorded.
-
-### 3. Download Integrity Tests
+### 2. Automated Downloader Tests
 
 Command:
 
 ```powershell
-uv run pytest tests/unit/test_fetch.py -k "download_writes_file_and_hash or download_rejects_oversized_file" -v
+uv run pytest tests/unit/test_fetch.py -q
 ```
 
-Result:
+Latest result:
 
 ```text
-2 passed, 17 deselected
+25 passed in 0.44s
 ```
 
-Verified successful file writing, hashing and oversized-file rejection.
+The tests verify downloader behaviour, including:
+
+- Successful file downloads.
+- SHA-256 hashing.
+- Oversized-file rejection.
+- Manifest recording.
+- Skipping already downloaded files.
+- Partial-download resume behaviour.
+- Range response handling.
+
+### 3. Full Test Suite and Code Quality
+
+Previously verified full test suite:
+
+```text
+42 passed in 0.75s
+```
+
+Code quality verification:
+
+- Ruff checks passed.
+- Ruff formatting passed.
+- Pre-commit hooks passed.
+- Git whitespace checks passed.
+
+These are previously recorded results; they were not rerun during the final documentation update.
 
 ### 4. Partial File Check
 
@@ -462,77 +468,156 @@ Command:
 Get-ChildItem data -Recurse -Filter *.part
 ```
 
-Result: No `.part` files found in the project data directory.
+Previously recorded result: No `.part` files found during that check.
 
-### 5. Complete Test Suite
+### 5. Real Download Interruption and Resume — Pending
 
-Command:
+The automated tests verify the downloader's resume behaviour.
 
-```powershell
-uv run poe test
-```
+However, a separate real-world Ctrl+C interruption-and-resume drill has not been verified.
 
-Result:
+The required live exercise is:
 
-```text
-36 passed in 0.57s
-```
+1. Start an approved document download.
+2. Interrupt it using Ctrl+C after approximately 10 seconds.
+3. Run the downloader again.
+4. Confirm that it resumes the partial download.
+5. Run it again to verify that completed files are skipped.
+6. Record the three run measurements.
 
-### 6. Real Download Interruption and Resume — Pending
+No real run counts are claimed because this exercise has not been completed.
 
-The live interruption-and-resume drill was not performed because publisher-specific automated download and storage permissions have not yet been confirmed.
+A permitted source and its publisher's download conditions must be verified before performing the live exercise.
 
-No real source documents were downloaded during this verification.
+---
 
-The expected live download, Ctrl+C interruption, resume counts and third-run skip counts remain pending permission confirmation.
-
-## D06 · Collecting the corpus
+## D06 · Collecting the Corpus
 
 ### 1. Starting Target
 
-- Passenger CARs and two airlines' conditions of carriage (IndiGo and Air India).
-- Source list reviewed: 12 URLs (10 government/aviation information sources and 2 airline sources).
-- Collection status: **Not started; permission checks are incomplete.**
+- Starting target: Passenger CARs and two airlines' conditions of carriage (IndiGo and Air India).
+- Full target: Relevant CARs, revisions and four airlines' terms, with 1,200+ pages.
+- Source register: `data/sources.csv`.
+- Sources reviewed: 12 URLs, including government and aviation information sources and two airline sources.
 
-### 2. Collection Measurements
+### 2. Current Corpus Measurements
 
-- Collected today: 0 files, 0 pages, 0 MB.
-- No source documents were downloaded, so no live corpus measurements are available.
-- The full-corpus target of 1,200+ pages is a planning estimate, not a measured collection.
+Latest measured dataset report:
+
+| Metric | Result |
+|---|---:|
+| Valid unique PDF documents | 4 |
+| Total PDF pages | 134 |
+| Total characters | 192,381 |
+| Estimated tokens | 28,084 |
+| Total size | 30.42 MiB |
+| Unavailable or excluded sources | 8 |
+| Full corpus target | 1,200+ pages |
+| Remaining pages to target | At least 1,066 |
+
+The current valid documents are:
+
+1. Passenger Denied Boarding Cancellation and Delay CAR — 8 pages.
+2. Refund of Airline Tickets CAR — 3 pages.
+3. Persons with Disability and Reduced Mobility CAR — 13 pages.
+4. Accessibility Standards and Guidelines for Civil Aviation 2022 — 110 pages.
+
+The complete file list and SHA-256 fingerprints are recorded in `data/manifest.jsonl`.
 
 ### 3. Access and Permission Review
 
-- Source list: `data/sources.csv`.
-- Government sources: reproduction and third-party rights must be checked for each publisher and document.
-- IndiGo: automated downloading, storage and reuse permission not confirmed.
-- Air India: express permission for downloading, storage and automated collection not confirmed.
-- Full-text display in answers: not approved for the airline documents.
+- Source register: `data/sources.csv`.
+- Source licence descriptions have been recorded.
+- Publisher-specific permission to download, store and display all source documents has not been fully confirmed.
+- The downloader uses `download_approved` checks and defaults to blocking unapproved sources.
+- No unverified permission has been treated as approval.
 
-### 4. Robots.txt and Downloader Safety
+### 4. Robots.txt and Access Restrictions
 
-- The downloader checks robots.txt before requesting a source.
-- If robots rules cannot be retrieved reliably, the downloader blocks the request.
-- IndiGo robots.txt access was not verified; a 403 response was observed during the review.
-- DGCA robots.txt access remains unverified.
-- Air India's robots.txt was retrieved, but its rules must be checked against the exact document URL before any collection.
-- No blocked request was bypassed.
+The following access issues were recorded:
+
+| Source | Result |
+|---|---|
+| IndiGo Conditions of Carriage | Blocked by robots.txt |
+| Air India Conditions of Carriage | Blocked by robots.txt |
+| Carriage by Air Act 1972 | HTTP 403 |
+| Compensation Guidelines | HTTP 403 |
+| Passenger Charter February 2019 | HTTP 403 |
+| Ministry of Civil Aviation Passenger Grievance | HTTP 403 |
+| Passenger Baggage Rules and Information | Homepage/fallback HTML; excluded |
+| DGCA Passenger Information FAQs | Homepage/fallback HTML; excluded |
+
+No blocked requests were bypassed.
+
+HTTP 403 and robots.txt restrictions were treated as access limitations, not as reasons to bypass publisher controls.
 
 ### 5. Kill and Resume
 
-- Run 1: Not performed; no Ctrl+C interruption drill.
-- Run 2: Not performed.
-- Run 3: Not performed.
-- The existing automated tests cover manifest recording and skipping completed downloads; a real collection resume drill remains pending.
+- Run 1: Real interruption drill not performed.
+- Run 2: Real resume run not performed.
+- Run 3: Completed-download skip verification was covered by automated tests, but a separate live run is not recorded.
+
+The automated tests cover resume and manifest behaviour. The real three-run exercise remains pending.
 
 ### 6. Capacity Measurements
 
-- Tokens per page: Not measured.
-- Full corpus tokens: Not measured.
-- Full corpus chunks: Not measured.
-- Estimated embedding cost: Not measured.
-- Vector storage: Not measured.
-- The 1,200+ page full-corpus figure remains a planning target.
+The current corpus contains 134 pages, 192,381 characters and approximately 28,084 tokens.
+
+The updated `docs/CAPACITY.md` estimates the 1,200-page target using the current measurements.
+
+Planning estimates:
+
+| Metric | Estimate for 1,200 pages |
+|---|---:|
+| Scale factor | 8.96x |
+| Tokens | Approximately 251,600 |
+| Raw files | Approximately 272.5 MiB |
+| Chunks | Approximately 723 |
+| One-time embedding cost | Approximately $0.044 (Rs 4.20) |
+| Vector storage | Approximately 2.12 MiB |
+| Text storage | Approximately 1.98 MiB |
+
+These are estimates based on stated assumptions, not actual production measurements.
+
+The free PostgreSQL storage limit must be checked against the database dashboard before confirming that the complete corpus will fit.
 
 ### 7. What Went Wrong and How It Was Handled
 
-Automated collection permissions for the airline documents and some government sources were not confirmed. Collection was paused rather than treating public accessibility or robots.txt permission as copyright or reuse permission. The next step is to obtain the required publisher permissions and verify each source's access rules before downloading
+Some airline sources were blocked by robots.txt. Several government sources returned HTTP 403 or homepage fallback HTML instead of the expected documents.
+
+Publisher-specific download and storage permissions were not fully confirmed.
+
+Collection was limited to the documents available in the measured corpus. Blocked sources were not bypassed, and invalid fallback HTML files were excluded from the valid PDF corpus.
+
+### 8. Documentation and Git Verification
+
+Updated files:
+
+- `DATASET.md`
+- `docs/CAPACITY.md`
+
+The dataset documentation records the four valid PDFs, 134 pages, source gaps and access restrictions.
+
+The capacity documentation records the measured corpus, full-corpus estimates and four required conclusions.
+
+Documentation commit:
+
+`c1891c1` — `docs: update dataset and capacity measurements`
+
+Pull Request #35 was merged into `main`.
+
+Final merge commit:
+
+`996f111` — Merge pull request #35.
+
+The local `main` branch was verified as synchronized with `origin/main`, with a clean working tree.
+
+### 9. Remaining D06 Work
+
+- Complete the real Ctrl+C interruption-and-resume drill using an approved source.
+- Verify publisher-specific download and storage permissions.
+- Collect additional permitted documents toward the 1,200+ page target.
+- Compare estimated database storage with the actual free PostgreSQL storage limit.
+- Record the actual live interruption and resume measurements when the drill is performed.
+
+**Current D06 conclusion:** Downloader implementation, automated tests, dataset reporting, capacity reporting and documentation merge are completed. The live resume drill, complete source permissions and 1,200+ page corpus target remain outstanding.
