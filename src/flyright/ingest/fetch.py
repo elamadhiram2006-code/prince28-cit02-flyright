@@ -2,6 +2,7 @@
 
 Downloads only sources with explicit download approval.
 Checks robots.txt before requesting source documents.
+Preserves partial downloads so interrupted downloads can resume.
 """
 
 import asyncio
@@ -296,26 +297,86 @@ async def _download(
     root: Path,
     raw_dir: Path,
 ) -> dict:
-    """Stream one download to a temporary file, then rename it."""
-    async with client.stream("GET", src.url) as response:
-        if response.status_code != 200:
+    """Download a file and resume an existing partial download."""
+    stem = file_stem(src.url)
+
+    url_suffix = Path(urlsplit(src.url).path).suffix.lower()
+    part_ext = url_suffix if url_suffix in KNOWN_EXT else ".bin"
+
+    folder = raw_dir / slug(src.source)
+    folder.mkdir(parents=True, exist_ok=True)
+
+    part = folder / f"{stem}{part_ext}.part"
+    offset = part.stat().st_size if part.exists() else 0
+
+    if offset > MAX_BYTES:
+        part.unlink(missing_ok=True)
+        raise DownloadError(f"larger than {MAX_BYTES // 2**20} MB")
+
+    headers = {"Accept-Encoding": "identity"}
+
+    if offset:
+        headers["Range"] = f"bytes={offset}-"
+
+    async with client.stream(
+        "GET",
+        src.url,
+        headers=headers,
+    ) as response:
+        status = response.status_code
+
+        if status not in {200, 206}:
             raise DownloadError(
-                f"HTTP {response.status_code}",
-                code=response.status_code,
+                f"HTTP {status}",
+                code=status,
                 retry_after=retry_after_seconds(response.headers.get("Retry-After")),
             )
 
         content_type = response.headers.get("Content-Type", "")
-        name = file_stem(src.url) + pick_ext(src.url, content_type)
-        target = raw_dir / slug(src.source) / name
-        target.parent.mkdir(parents=True, exist_ok=True)
+        extension = pick_ext(src.url, content_type)
+        name = stem + extension
+        target = folder / name
 
-        part = target.with_name(name + ".part")
+        append = False
+        expected_chunk_size: int | None = None
+
+        if status == 206:
+            content_range = response.headers.get("Content-Range", "")
+            match = re.fullmatch(
+                r"bytes (\d+)-(\d+)/(\d+)",
+                content_range.strip(),
+            )
+
+            if not match:
+                raise DownloadError("Invalid or missing Content-Range header")
+
+            range_start, range_end, total = map(int, match.groups())
+
+            if (
+                range_start != offset
+                or range_end < range_start
+                or range_end != total - 1
+                or total > MAX_BYTES
+            ):
+                raise DownloadError("Invalid Content-Range values")
+
+            expected_chunk_size = range_end - range_start + 1
+            append = offset > 0
+
+        # If the server ignores Range and returns 200, restart from zero.
+        mode = "ab" if append else "wb"
+
         digest = hashlib.sha256()
         size = 0
 
+        if append:
+            with part.open("rb") as existing:
+                while chunk := existing.read(1024 * 1024):
+                    digest.update(chunk)
+                    size += len(chunk)
+
         try:
-            with part.open("wb") as handle:
+            with part.open(mode) as handle:
                 async for chunk in response.aiter_bytes():
                     size += len(chunk)
 
@@ -325,17 +386,24 @@ async def _download(
                     digest.update(chunk)
                     handle.write(chunk)
 
+            downloaded_chunk_size = size - (offset if append else 0)
+
+            if expected_chunk_size is not None and downloaded_chunk_size != expected_chunk_size:
+                raise DownloadError("Incomplete response body; partial file preserved")
+
             part.replace(target)
 
-        finally:
-            part.unlink(missing_ok=True)
+        except DownloadError as exc:
+            if "larger than" in str(exc):
+                part.unlink(missing_ok=True)
+            raise
 
     return {
         "path": target.relative_to(root).as_posix(),
         "bytes": size,
         "sha256": digest.hexdigest(),
         "content_type": content_type.split(";")[0].strip(),
-        "http_status": 200,
+        "http_status": status,
     }
 
 
