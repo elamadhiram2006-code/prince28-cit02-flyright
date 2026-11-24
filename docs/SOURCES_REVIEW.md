@@ -265,4 +265,4 @@ Official policy: https://www.civilaviation.gov.in/website_policies
   corpus storage and reuse.
 - Automated access and robots.txt permission remain unverified.
 
-Status: MoCA sources are not yet approved for corpus collection.
+Status: 7 potential reuse candidates identified; 0 documents approved for automated collection.
