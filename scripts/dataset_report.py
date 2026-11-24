@@ -8,386 +8,441 @@ Only the content between generated markers is replaced.
 """
 
 import argparse
+import hashlib
 import json
 import logging
+import re
 import sys
-from collections import defaultdict
 from datetime import UTC, datetime
 from html.parser import HTMLParser
 from pathlib import Path
 
-from pypdf import PdfReader
+ROOT = Path(__file__).resolve().parent.parent
+MANIFEST = ROOT / "data" / "manifest.jsonl"
+DATASET_FILE = ROOT / "DATASET.md"
+CAPACITY_FILE = ROOT / "docs" / "CAPACITY.md"
 
-MANIFEST = Path("data/manifest.jsonl")
-CACHE = Path("data/raw/.measured.json")
-START = "<!-- generated:start -->"
-END = "<!-- generated:end -->"
-
-TEXT_EXT = {
-    ".md",
-    ".mdx",
-    ".markdown",
-    ".txt",
-    ".rst",
-    ".adoc",
-    ".sgml",
-    ".json",
-    ".yaml",
-    ".yml",
-    ".csv",
-    ".xml",
-    ".py",
+# These are DGCA homepage fallback files, not passenger documents.
+INVALID_HTML_FILENAMES = {
+    "digigov-portal-4fd04e37.html",
+    "digigov-portal-e95b6f2d.html",
 }
-
-CHARS_PER_PAGE = 3000
-CHARS_PER_TOKEN = 4
-PDF_SAMPLE = 5
-OVERLAP = 1.15
-
-logging.getLogger("pypdf").setLevel(logging.ERROR)
 
 
 class VisibleText(HTMLParser):
-    """Count visible HTML text, excluding scripts and styles."""
+    """Extract visible text from HTML."""
 
-    def __init__(self) -> None:
+    def __init__(self):
         super().__init__()
-        self.chars = 0
-        self._hidden = 0
+        self.parts = []
+        self.hidden_depth = 0
 
-    def handle_starttag(self, tag: str, attrs: list) -> None:
-        if tag in {"script", "style", "noscript"}:
-            self._hidden += 1
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() in {"script", "style", "noscript", "svg"}:
+            self.hidden_depth += 1
 
-    def handle_endtag(self, tag: str) -> None:
-        if tag in {"script", "style", "noscript"} and self._hidden > 0:
-            self._hidden -= 1
+    def handle_endtag(self, tag):
+        if tag.lower() in {"script", "style", "noscript", "svg"}:
+            self.hidden_depth = max(0, self.hidden_depth - 1)
 
-    def handle_data(self, data: str) -> None:
-        if not self._hidden:
-            self.chars += len(" ".join(data.split()))
+    def handle_data(self, data):
+        if not self.hidden_depth:
+            text = data.strip()
+            if text:
+                self.parts.append(text)
+
+    def get_text(self):
+        return " ".join(self.parts)
 
 
-def measure(path: Path) -> dict:
-    """Measure pages and characters for one file."""
-    ext = path.suffix.lower()
+def sha256_file(path):
+    """Calculate a file's SHA-256 hash."""
 
-    try:
-        if ext == ".pdf":
-            reader = PdfReader(path)
-            pages = len(reader.pages)
-            step = max(1, pages // PDF_SAMPLE)
-            sample = list(range(0, pages, step))[:PDF_SAMPLE]
-            seen = sum(len(reader.pages[i].extract_text() or "") for i in sample)
-            chars = round(seen / max(1, len(sample)) * pages)
-            note = "almost no text: scanned?" if pages and chars / pages < 100 else ""
-            return {
-                "kind": "pdf",
-                "pages": pages,
-                "chars": chars,
-                "note": note,
-            }
+    digest = hashlib.sha256()
 
-        if ext in {".html", ".htm"}:
-            parser = VisibleText()
-            parser.feed(path.read_text(encoding="utf-8", errors="replace"))
-            return {
-                "kind": "html",
-                "pages": parser.chars / CHARS_PER_PAGE,
-                "chars": parser.chars,
-            }
+    with path.open("rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
 
-        if ext in TEXT_EXT:
-            chars = len(path.read_text(encoding="utf-8", errors="replace"))
-            return {
-                "kind": "text",
-                "pages": chars / CHARS_PER_PAGE,
-                "chars": chars,
-            }
+    return digest.hexdigest()
 
-    except Exception as exc:
-        return {
-            "kind": "unreadable",
-            "pages": 0,
-            "chars": 0,
-            "note": type(exc).__name__,
-        }
 
-    return {
-        "kind": "other",
+def measure(path):
+    """Measure pages, characters and estimated tokens."""
+
+    result = {
         "pages": 0,
         "chars": 0,
-        "note": "not measured",
+        "tokens": 0,
+        "note": "",
     }
 
+    suffix = path.suffix.lower()
 
-def load_records() -> list[dict]:
+    try:
+        if suffix == ".pdf":
+            from pypdf import PdfReader
+
+            reader = PdfReader(str(path))
+            result["pages"] = len(reader.pages)
+
+            text_parts = []
+
+            for page in reader.pages:
+                text_parts.append(page.extract_text() or "")
+
+            content = "\n".join(text_parts)
+
+        elif suffix in {".html", ".htm"}:
+            parser = VisibleText()
+            parser.feed(path.read_text(encoding="utf-8", errors="replace"))
+            content = parser.get_text()
+            result["pages"] = 1 if content else 0
+
+        elif suffix in {".txt", ".md", ".csv", ".json"}:
+            content = path.read_text(encoding="utf-8", errors="replace")
+            result["pages"] = 1 if content.strip() else 0
+
+        else:
+            result["note"] = "Unsupported file type"
+            return result
+
+        result["chars"] = len(content)
+        result["tokens"] = len(content.split())
+
+    except Exception as exc:
+        logging.warning("Could not measure %s: %s", path, exc)
+        result["note"] = str(exc)
+
+    return result
+
+
+def load_records():
     """Load the latest manifest record for each URL."""
-    latest: dict[str, dict] = {}
 
-    for line in MANIFEST.read_text(encoding="utf-8").splitlines():
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            continue
+    if not MANIFEST.is_file():
+        logging.error("Manifest not found: %s", MANIFEST)
+        return []
 
-        latest[record["url"]] = record
+    latest = {}
+
+    with MANIFEST.open("r", encoding="utf-8") as file:
+        for line_number, line in enumerate(file, start=1):
+            if not line.strip():
+                continue
+
+            try:
+                record = json.loads(line)
+                url = record.get("url")
+
+                if url:
+                    latest[url] = record
+
+            except json.JSONDecodeError:
+                logging.warning(
+                    "Ignoring invalid manifest line %s",
+                    line_number,
+                )
 
     return list(latest.values())
 
 
-def measure_all(records: list[dict]) -> None:
-    """Measure files and cache results by SHA-256."""
-    cache = json.loads(CACHE.read_text(encoding="utf-8")) if CACHE.exists() else {}
+def measure_all(records):
+    """Measure records while avoiding repeated work for identical files."""
 
-    for number, record in enumerate(records, start=1):
-        if record["sha256"] not in cache:
-            cache[record["sha256"]] = measure(Path(record["path"]))
+    cache = {}
 
-            if number % 100 == 0:
-                print(f"measured {number} of {len(records)} files")
+    for record in records:
+        path = Path(record["path"])
 
-        record.update(cache[record["sha256"]])
+        if not path.is_absolute():
+            path = ROOT / path
 
-    CACHE.parent.mkdir(parents=True, exist_ok=True)
-    CACHE.write_text(json.dumps(cache), encoding="utf-8")
+        file_hash = record.get("sha256")
 
+        if not file_hash:
+            file_hash = sha256_file(path)
 
-def put_block(path: Path, title: str, block: str) -> None:
-    """Replace the generated block and preserve all other notes."""
-    text = path.read_text(encoding="utf-8") if path.exists() else f"# {title}\n"
+        if file_hash not in cache:
+            cache[file_hash] = measure(path)
 
-    wrapped = f"{START}\n{block.strip()}\n{END}"
+        stats = cache[file_hash]
 
-    if START in text and END in text:
-        text = text[: text.index(START)] + wrapped + text[text.index(END) + len(END) :]
-    else:
-        text = text.rstrip() + "\n\n" + wrapped + "\n"
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+        record["pages"] = stats["pages"]
+        record["chars"] = stats["chars"]
+        record["tokens"] = stats["tokens"]
+        record["measurement_note"] = stats["note"]
 
 
-def cell(value: object) -> str:
-    return str(value or "").replace("|", "/").replace("\n", " ").strip()
+def dataset_block(done, not_done, today):
+    """Create the DATASET.md generated section."""
 
-
-def dataset_block(
-    done: list[dict],
-    not_done: list[dict],
-    today: str,
-) -> str:
-    groups: dict[str, list[dict]] = defaultdict(list)
-
-    for record in done:
-        groups[record["source"]].append(record)
-
-    rows = []
-
-    for name, items in sorted(groups.items()):
-        how = sorted({r.get("via", "http") for r in items})
-        commit = next(
-            (r["commit"][:10] for r in items if r.get("commit")),
-            "",
-        )
-        size = sum(r["bytes"] for r in items) / 1e6
-        pages = round(sum(r["pages"] for r in items))
-        fetched = max(r["fetched_at"] for r in items)[:10]
-
-        rows.append(
-            f"| {cell(name)} | {cell(items[0]['licence'])} "
-            f"| {len(items)} | {size:.1f} | {pages:,} "
-            f"| {'+'.join(how)}"
-            f"{' @ ' + commit if commit else ''} | {fetched} "
-            f"| {items[0]['url']} |"
-        )
-
-    blocked = sum(r["status"] == "blocked" for r in not_done)
-    failed = sum(r["status"] == "failed" for r in not_done)
-
-    listed = sorted(
-        done,
-        key=lambda r: (r["source"], r["path"]),
-    )[:200]
-
-    files = [
-        f"| {i} | {cell(r.get('title') or Path(r['path']).name)} "
-        f"| {cell(r['source'])} | {round(r['pages']) or ''} "
-        f"| {r['fetched_at'][:10]} | {r['url']} |"
-        for i, r in enumerate(listed, start=1)
+    lines = [
+        f"**Last updated:** {today}",
+        "",
+        f"- Unique valid documents: **{len(done)}**",
+        f"- Total pages: **{sum(r['pages'] for r in done):,}**",
+        f"- Total characters: **{sum(r['chars'] for r in done):,}**",
+        f"- Estimated tokens: **{sum(r['tokens'] for r in done):,}**",
+        f"- Unavailable or excluded sources: **{len(not_done)}**",
+        "",
+        "## Downloaded documents",
+        "",
+        "| Document | Source | Pages | Size (bytes) |",
+        "|---|---|---:|---:|",
     ]
 
-    total_mb = sum(r["bytes"] for r in done) / 1e6
-    total_pages = round(sum(r["pages"] for r in done))
+    for record in done:
+        title = record.get("title", "Untitled").replace("|", "\\|")
+        source = record.get("source", "Unknown").replace("|", "\\|")
 
-    return "\n".join(
+        lines.append(f"| {title} | {source} | {record['pages']:,} | {record.get('bytes', 0):,} |")
+
+    lines.extend(
         [
-            f"## Sources (generated {today} UTC by scripts/dataset_report.py)",
             "",
-            "| Source | Licence / terms | Files | MB | Pages* | How | Fetched | Example URL |",
-            "|---|---|---|---|---|---|---|---|",
-            *rows,
+            "## Sources not included in the corpus",
             "",
-            f"**Total:** {len(done):,} files, {total_mb:.1f} MB, "
-            f"{total_pages:,} pages. Not downloaded: {blocked} blocked "
-            f"by robots.txt, {failed} failed.",
-            "",
-            "*Pages = PDF pages, plus one page per 3,000 characters of text or HTML.",
-            "",
-            f"## Files (first {len(listed)} of {len(done):,})",
-            "",
-            "The complete list, with a sha256 fingerprint of every file, is `data/manifest.jsonl`.",
-            "",
-            "| # | Title / file | Source | Pages | Fetched | URL |",
-            "|---|---|---|---|---|---|",
-            *files,
         ]
     )
 
+    if not_done:
+        lines.extend(
+            [
+                "| Document | Status | Reason |",
+                "|---|---|---|",
+            ]
+        )
 
-def capacity_block(
-    done: list[dict],
-    args: argparse.Namespace,
-    today: str,
-) -> str:
-    files = len(done)
-    size_mb = sum(r["bytes"] for r in done) / 1e6
-    pages = sum(r["pages"] for r in done)
-    chars = sum(r["chars"] for r in done)
-    tokens = chars / CHARS_PER_TOKEN
+        for record in not_done:
+            title = record.get("title", "Untitled").replace("|", "\\|")
+            status = record.get("status", "unknown")
+            reason = str(
+                record.get("error")
+                or record.get("reason")
+                or record.get("message")
+                or "Not available"
+            ).replace("|", "\\|")
 
-    scanned = sum(1 for r in done if "scanned" in r.get("note", ""))
-    skipped = sum(1 for r in done if r["kind"] in {"other", "unreadable"})
-
-    if args.full_pages:
-        if pages <= 0:
-            raise ValueError("Measured pages must be greater than zero.")
-        scale = args.full_pages / pages
-        target = f"{args.full_pages:,} pages"
+            lines.append(f"| {title} | {status} | {reason} |")
     else:
-        if files <= 0:
-            raise ValueError("Measured files must be greater than zero.")
-        scale = args.full_files / files
-        target = f"{args.full_files:,} files"
+        lines.append("No unavailable sources.")
 
-    full_tokens = tokens * scale
-    chunks = full_tokens / args.chunk_tokens * OVERLAP
-    embed_usd = full_tokens * OVERLAP / 1e6 * args.embed_usd
-    vector_mb = chunks * args.dims * 4 / 1e6
-    text_mb = chars * scale * 1.2 / 1e6
+    lines.append("")
+    return "\n".join(lines)
 
-    return "\n".join(
-        [
-            f"## Measured on my start corpus ({today} UTC)",
-            "",
-            "| What | Value |",
-            "|---|---|",
-            f"| Files | {files:,} |",
-            f"| Size on disk | {size_mb:.1f} MB |",
-            f"| Pages (PDF pages + 1 per 3,000 characters of text/HTML) | {pages:,.0f} |",
-            f"| Characters of text | {chars:,} |",
-            f"| Estimated tokens (characters / {CHARS_PER_TOKEN}) | {tokens:,.0f} |",
-            f"| Tokens per page | {tokens / pages:,.0f} |",
-            f"| PDFs with almost no text (scanned? OCR is Day 7) | {scanned} |",
-            f"| Files not measured (zip, xlsx, unreadable) | {skipped} |",
-            "",
-            f"## Estimate for the full corpus (target: {target})",
-            "",
-            "| What | How | Value |",
-            "|---|---|---|",
-            f"| Scale factor | target / measured | x {scale:.1f} |",
-            f"| Tokens | measured tokens x scale | {full_tokens / 1e6:.2f} M |",
-            f"| Raw files | measured MB x scale | {size_mb * scale:,.0f} MB |",
-            f"| Chunks | tokens / {args.chunk_tokens} x {OVERLAP} overlap | {chunks:,.0f} |",
-            (
-                f"| Embedding cost, one time | tokens x {OVERLAP} x "
-                f"${args.embed_usd} per 1M | ${embed_usd:,.2f} = "
-                f"Rs {embed_usd * args.usd_inr:,.0f} |"
-            ),
-            f"| Vector storage | chunks x {args.dims} numbers x 4 bytes | {vector_mb:,.0f} MB |",
-            f"| Text in Postgres | characters x scale x 1.2 | {text_mb:,.0f} MB |",
-            "",
-            f"Assumptions: {CHARS_PER_TOKEN} characters per token, "
-            f"{args.chunk_tokens}-token chunks, {args.dims}-dimension embeddings "
-            f"at ${args.embed_usd} per 1M tokens, Rs {args.usd_inr:g} per US dollar.",
-        ]
+
+def capacity_block(done, not_done, args, today):
+    """Create the docs/CAPACITY.md generated section."""
+
+    total_bytes = sum(r.get("bytes", 0) for r in done)
+    total_pages = sum(r["pages"] for r in done)
+    total_chars = sum(r["chars"] for r in done)
+    total_tokens = sum(r["tokens"] for r in done)
+
+    page_target = args.full_pages
+    file_target = args.full_files
+
+    page_percent = min(100, total_pages / page_target * 100) if page_target > 0 else 0
+
+    file_percent = min(100, len(done) / file_target * 100) if file_target > 0 else 0
+
+    lines = [
+        f"**Last updated:** {today}",
+        "",
+        "## Corpus measurements",
+        "",
+        "| Metric | Current value |",
+        "|---|---:|",
+        f"| Unique documents | {len(done):,} |",
+        f"| Total pages | {total_pages:,} |",
+        f"| Total characters | {total_chars:,} |",
+        f"| Estimated tokens | {total_tokens:,} |",
+        f"| Total size | {total_bytes / (1024 * 1024):.2f} MiB |",
+        f"| Unavailable or excluded sources | {len(not_done):,} |",
+        "",
+        "## Capacity targets",
+        "",
+        "| Target | Goal | Current | Progress |",
+        "|---|---:|---:|---:|",
+        (f"| Full pages | {page_target:,} | {total_pages:,} | {page_percent:.1f}% |"),
+        (f"| Full files | {file_target:,} | {len(done):,} | {file_percent:.1f}% |"),
+        "",
+        "## Status",
+        "",
+    ]
+
+    if total_pages >= page_target and len(done) >= file_target:
+        lines.append("Both configured corpus targets have been reached.")
+    else:
+        lines.append(
+            "Corpus targets have not yet been reached. "
+            "Continue collecting permitted, relevant documents."
+        )
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def replace_generated(path, content):
+    """Replace generated content while preserving the rest of a document."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    original = path.read_text(encoding="utf-8") if path.exists() else ""
+
+    begin_pattern = re.compile(
+        r"<!--\s*(?:BEGIN|START)[^>]*GENERATED[^>]*-->",
+        re.IGNORECASE,
     )
 
-
-def main() -> int:
-    sys.stdout.reconfigure(errors="replace")
-
-    parser = argparse.ArgumentParser(
-        description=__doc__,
-        formatter_class=argparse.RawTextHelpFormatter,
+    end_pattern = re.compile(
+        r"<!--\s*END[^>]*GENERATED[^>]*-->",
+        re.IGNORECASE,
     )
 
-    goal = parser.add_mutually_exclusive_group(required=True)
-    goal.add_argument(
+    begin = begin_pattern.search(original)
+    end = end_pattern.search(original)
+
+    if begin and end and begin.end() <= end.start():
+        updated = original[: begin.end()] + "\n\n" + content + "\n" + original[end.start() :]
+    else:
+        section = (
+            "<!-- BEGIN GENERATED CONTENT -->\n\n" + content + "\n<!-- END GENERATED CONTENT -->\n"
+        )
+
+        updated = original.rstrip()
+
+        if updated:
+            updated += "\n\n"
+
+        updated += section
+
+    path.write_text(updated, encoding="utf-8")
+
+
+def main():
+    """Run corpus measurements and generate reports."""
+
+    parser = argparse.ArgumentParser(description="Measure the corpus and generate dataset reports.")
+
+    parser.add_argument(
         "--full-pages",
         type=int,
-        help="pages in your FULL corpus target",
-    )
-    goal.add_argument(
-        "--full-files",
-        type=int,
-        help="files in your FULL corpus target",
+        default=1200,
+        help="Target number of pages (default: 1200)",
     )
 
     parser.add_argument(
-        "--embed-usd",
-        type=float,
-        default=0.15,
-        help="embedding dollars per 1M tokens",
+        "--full-files",
+        type=int,
+        default=2500,
+        help="Target number of files (default: 2500)",
     )
-    parser.add_argument(
-        "--usd-inr",
-        type=float,
-        default=95.0,
-        help="rupees per US dollar",
-    )
-    parser.add_argument("--dims", type=int, default=768)
-    parser.add_argument("--chunk-tokens", type=int, default=400)
 
     args = parser.parse_args()
 
-    if not MANIFEST.exists():
-        print("data/manifest.jsonl not found: run scripts/fetch.py first")
-        return 1
+    if args.full_pages < 0 or args.full_files < 0:
+        parser.error("Targets cannot be negative.")
 
     records = load_records()
 
-    done = [r for r in records if r["status"] == "downloaded" and Path(r["path"]).is_file()]
-    not_done = [r for r in records if r["status"] != "downloaded"]
+    if not records:
+        print("No manifest records found.")
+        return 1
+
+    # Find all downloaded files that still exist.
+    downloaded = []
+
+    for record in records:
+        if record.get("status") != "downloaded":
+            continue
+
+        path = Path(record.get("path", ""))
+
+        if not path.is_absolute():
+            path = ROOT / path
+
+        if path.is_file():
+            record["_resolved_path"] = path
+            downloaded.append(record)
+
+    # Exclude known DGCA homepage fallback HTML files.
+    invalid = []
+
+    for record in downloaded:
+        path = record["_resolved_path"]
+
+        if path.suffix.lower() in {".html", ".htm"} and path.name in INVALID_HTML_FILENAMES:
+            invalid.append(record)
+
+    invalid_urls = {record.get("url") for record in invalid}
+
+    # Deduplicate files using SHA-256.
+    seen_hashes = set()
+    done = []
+
+    for record in downloaded:
+        if record.get("url") in invalid_urls:
+            continue
+
+        file_hash = record.get("sha256")
+
+        if not file_hash:
+            file_hash = sha256_file(record["_resolved_path"])
+
+        if file_hash in seen_hashes:
+            continue
+
+        seen_hashes.add(file_hash)
+        done.append(record)
+
+    # Collect failed, blocked, missing and excluded sources.
+    not_done = []
+
+    for record in records:
+        path = Path(record.get("path", ""))
+
+        if not path.is_absolute():
+            path = ROOT / path
+
+        if (
+            record.get("status") != "downloaded"
+            or not path.is_file()
+            or record.get("url") in invalid_urls
+        ):
+            not_done.append(record)
 
     if not done:
-        print("No downloaded files available to measure.")
+        print("No valid downloaded documents available to measure.")
         return 1
 
+    # Measure all valid unique documents.
     measure_all(done)
 
-    if not sum(r["pages"] for r in done):
-        print("Nothing measurable yet: download permitted PDF, HTML or text files first.")
+    if not sum(record["pages"] for record in done):
+        print("Nothing measurable yet: check the downloaded documents.")
         return 1
 
-    today = datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
 
-    put_block(
-        Path("DATASET.md"),
-        "Dataset",
-        dataset_block(done, not_done, today),
-    )
-    put_block(
-        Path("docs/CAPACITY.md"),
-        "Capacity plan",
-        capacity_block(done, args, today),
+    dataset_content = dataset_block(done, not_done, today)
+    capacity_content = capacity_block(done, not_done, args, today)
+
+    replace_generated(DATASET_FILE, dataset_content)
+    replace_generated(CAPACITY_FILE, capacity_content)
+
+    total_pages = sum(record["pages"] for record in done)
+
+    print(
+        f"files={len(done)} pages={total_pages} excluded={len(invalid)} unavailable={len(not_done)}"
     )
 
-    pages = sum(r["pages"] for r in done)
-    print(f"files={len(done)} pages={pages:,.0f} -> wrote DATASET.md and docs/CAPACITY.md")
+    print("Updated DATASET.md and docs/CAPACITY.md")
 
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    logging.basicConfig(level=logging.INFO)
+    sys.exit(main())

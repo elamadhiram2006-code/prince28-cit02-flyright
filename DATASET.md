@@ -78,3 +78,37 @@ The complete list, with a sha256 fingerprint of every file, is `data/manifest.js
 \- Publisher access conditions for some government sources remain unverified.
 
 \- The live corpus measurement is pending permitted source downloads.
+
+<!-- BEGIN GENERATED CONTENT -->
+
+**Last updated:** 2026-11-24
+
+- Unique valid documents: **4**
+- Total pages: **134**
+- Total characters: **192,381**
+- Estimated tokens: **28,084**
+- Unavailable or excluded sources: **8**
+
+## Downloaded documents
+
+| Document | Source | Pages | Size (bytes) |
+|---|---|---:|---:|
+| Passenger Denied Boarding Cancellation and Delay CAR | dgca | 8 | 285,108 |
+| Refund of Airline Tickets CAR | dgca | 3 | 2,754,578 |
+| Persons with Disability and Reduced Mobility CAR | dgca | 13 | 11,350,288 |
+| Accessibility Standards and Guidelines for Civil Aviation 2022 | dgca | 110 | 17,503,869 |
+
+## Sources not included in the corpus
+
+| Document | Status | Reason |
+|---|---|---|
+| IndiGo Conditions of Carriage | blocked | robots.txt |
+| Air India Conditions of Carriage | blocked | robots.txt |
+| Passenger Baggage Rules and Information | downloaded | Not available |
+| The Carriage by Air Act 1972 | failed | HTTP 403 |
+| Guidelines for Compensating Air Passengers Due to Cancellation and Delay | failed | HTTP 403 |
+| Passenger Charter February 2019 | failed | HTTP 403 |
+| DGCA Passenger Information FAQs | downloaded | Not available |
+| Ministry of Civil Aviation Passenger Grievance | failed | HTTP 403 |
+
+<!-- END GENERATED CONTENT -->
