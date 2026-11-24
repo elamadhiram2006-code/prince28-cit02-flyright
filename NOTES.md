@@ -536,3 +536,13 @@ The expected live download, Ctrl+C interruption, resume counts and third-run ski
 ### 7. What Went Wrong and How It Was Handled
 
 Automated collection permissions for the airline documents and some government sources were not confirmed. Collection was paused rather than treating public accessibility or robots.txt permission as copyright or reuse permission. The next step is to obtain the required publisher permissions and verify each source's access rules before downloading
+
+### 8. Latest Downloader Test Verification
+
+Command: `uv run pytest tests/unit/test_fetch.py -v`
+
+Result: **23 passed in 0.86s**.
+
+The tests verify manifest recording, completed-file skipping, temporary .part cleanup, download hashing, retry handling, and blocking unapproved sources.
+
+The real Ctrl+C interruption-and-resume test remains pending because all 12 sources are unapproved.
