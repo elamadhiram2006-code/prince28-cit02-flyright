@@ -59,3 +59,37 @@ These are planning estimates, not measured production storage or billing figures
 | Files | 2,500 | 4 | 0.16% |
 
 The corpus targets have not yet been reached. Continue collecting only permitted and relevant documents.
+
+<!-- BEGIN GENERATED CONTENT -->
+
+**Last updated:** 2026-11-24
+
+- Unique valid documents: **4**
+- Total pages: **134**
+- Total characters: **192,381**
+- Estimated tokens: **28,084**
+- Unavailable or excluded sources: **8**
+
+## Downloaded documents
+
+| Document | Source | Pages | Size (bytes) |
+|---|---|---:|---:|
+| Passenger Denied Boarding Cancellation and Delay CAR | dgca | 8 | 285,108 |
+| Refund of Airline Tickets CAR | dgca | 3 | 2,754,578 |
+| Persons with Disability and Reduced Mobility CAR | dgca | 13 | 11,350,288 |
+| Accessibility Standards and Guidelines for Civil Aviation 2022 | dgca | 110 | 17,503,869 |
+
+## Sources not included in the corpus
+
+| Document | Status | Reason |
+|---|---|---|
+| IndiGo Conditions of Carriage | blocked | download permission not approved |
+| Air India Conditions of Carriage | blocked | download permission not approved |
+| Passenger Baggage Rules and Information | downloaded | Not available |
+| The Carriage by Air Act 1972 | blocked | download permission not approved |
+| Guidelines for Compensating Air Passengers Due to Cancellation and Delay | blocked | download permission not approved |
+| Passenger Charter February 2019 | blocked | download permission not approved |
+| DGCA Passenger Information FAQs | downloaded | Not available |
+| Ministry of Civil Aviation Passenger Grievance | blocked | download permission not approved |
+
+<!-- END GENERATED CONTENT -->

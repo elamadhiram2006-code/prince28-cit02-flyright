@@ -59,3 +59,31 @@ These are planning estimates, not measured production storage or billing figures
 | Files | 2,500 | 4 | 0.16% |
 
 The corpus targets have not yet been reached. Continue collecting only permitted and relevant documents.
+
+<!-- BEGIN GENERATED CONTENT -->
+
+**Last updated:** 2026-11-24
+
+## Corpus measurements
+
+| Metric | Current value |
+|---|---:|
+| Unique documents | 4 |
+| Total pages | 134 |
+| Total characters | 192,381 |
+| Estimated tokens | 28,084 |
+| Total size | 30.42 MiB |
+| Unavailable or excluded sources | 8 |
+
+## Capacity targets
+
+| Target | Goal | Current | Progress |
+|---|---:|---:|---:|
+| Full pages | 1,200 | 134 | 11.2% |
+| Full files | 2,500 | 4 | 0.2% |
+
+## Status
+
+Corpus targets have not yet been reached. Continue collecting permitted, relevant documents.
+
+<!-- END GENERATED CONTENT -->
