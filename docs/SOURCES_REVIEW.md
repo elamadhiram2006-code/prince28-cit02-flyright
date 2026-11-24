@@ -219,3 +219,50 @@ Nine URLs opened in the browser. Three did not fully load.
 These are browser observations only. They do not confirm direct-file availability, automated access permission, storage permission, or permission to reproduce content in answers.
 
 Automated collection remains paused pending access and reuse permission verification.
+
+## 11. Official copyright policy verification
+
+Checked on 2026-11-24:
+
+- DGCA Website Policy:
+  https://www.dgca.gov.in/digigov-portal/jsp/dgca/footerLink/WebsitePolicy.jsp
+  Material featured on the DGCA website may be reproduced free of charge,
+  provided it is accurate, not misleading or derogatory, and prominently
+  acknowledges DGCA. Third-party copyrighted material is excluded and
+  requires permission from its copyright holder.
+
+- PIB Copyright Policy:
+  https://www.pib.gov.in/ContentPage.aspx?lang=2&menuid=102&reg=48
+  PIB website material may be reproduced without prior approval, subject
+  to accurate reproduction, acknowledgement, and third-party copyright
+  exclusions.
+
+Potential candidates under these policies:
+- Six DGCA-listed sources.
+- One PIB press release.
+
+Important limitations:
+- These policies are not blanket permission for third-party material.
+- Each individual document must be checked for third-party copyright.
+- Copyright permission does not establish robots.txt permission or
+  authorization for automated access.
+- No documents have been downloaded or added to the corpus yet.
+- Automated collection remains paused pending access verification.
+
+Status: 7 potential candidates; 10 permitted documents not yet collected.
+
+
+## 12. Ministry of Civil Aviation copyright policy
+
+Checked on 2026-11-24:
+Official policy: https://www.civilaviation.gov.in/website_policies
+
+- Materials specifically intended for download may be downloaded without
+  specific permission.
+- Other proposed uses require Ministry approval.
+- Website contents may not be reproduced without due permission.
+- The Passenger Charter and grievance page are not yet cleared for
+  corpus storage and reuse.
+- Automated access and robots.txt permission remain unverified.
+
+Status: MoCA sources are not yet approved for corpus collection.
