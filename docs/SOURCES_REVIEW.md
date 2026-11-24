@@ -171,3 +171,26 @@ Public availability does not establish permission for automated downloading, per
 Do not automatically download the airline documents until their access conditions and applicable reuse permissions have been checked.
 
 The Passenger CARs and two airline conditions-of-carriage sources are now represented in the source inventory.
+
+## 9. Development environment recheck — 2026-11-23
+
+The source inventory contains 12 entries: 10 government/institutional sources and 2 airline sources.
+
+Latest robots.txt checks from the development environment:
+
+| Publisher | Observed result | Status |
+|---|---|---|
+| DGCA | Request cannot be processed | Unverified |
+| India Code | Request timed out | Unverified |
+| Ministry of Civil Aviation | HTTP 403 Forbidden | Unverified |
+| PIB | HTTP 200 returned HTML instead of plain-text robots rules | Unverified |
+| IndiGo | Request timed out | Unverified |
+| Air India | Request timed out | Unverified |
+
+These responses do not establish permission or prohibition for automated downloading.
+
+No robots restrictions were bypassed. No corpus documents were downloaded during these checks.
+
+### Collection decision
+
+Automated collection remains paused until access rules and document reuse permissions are verified for each source. Written permission is still required where applicable, particularly for airline documents.
