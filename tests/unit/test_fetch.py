@@ -463,3 +463,126 @@ async def test_fetch_one_blocks_unapproved_source(tmp_path):
     assert record["status"] == "blocked"
     assert record["error"] == "download permission not approved"
     assert record["download_approved"] is False
+
+
+@pytest.mark.asyncio
+async def test_download_resumes_existing_partial_file(tmp_path):
+    source = Source(
+        "https://example.com/rules.pdf",
+        "DGCA",
+        "review pending",
+    )
+
+    folder = tmp_path / "data" / "raw" / "dgca"
+    folder.mkdir(parents=True)
+
+    stem = file_stem(source.url)
+    part = folder / f"{stem}.pdf.part"
+    part.write_bytes(b"first-")
+
+    requested_ranges = []
+
+    def handler(request):
+        requested_ranges.append(request.headers.get("Range"))
+
+        assert request.headers.get("Range") == "bytes=6-"
+
+        return httpx.Response(
+            206,
+            content=b"second",
+            headers={
+                "Content-Type": "application/pdf",
+                "Content-Range": "bytes 6-11/12",
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await _download(
+            client,
+            source,
+            tmp_path,
+            tmp_path / "data" / "raw",
+        )
+
+    saved = tmp_path / result["path"]
+
+    assert requested_ranges == ["bytes=6-"]
+    assert saved.read_bytes() == b"first-second"
+    assert result["bytes"] == 12
+    assert result["sha256"] == hashlib.sha256(b"first-second").hexdigest()
+    assert not part.exists()
+
+
+@pytest.mark.asyncio
+async def test_download_preserves_partial_file_after_interruption(tmp_path):
+    source = Source(
+        "https://example.com/rules.pdf",
+        "DGCA",
+        "review pending",
+    )
+
+    folder = tmp_path / "data" / "raw" / "dgca"
+    folder.mkdir(parents=True)
+
+    stem = file_stem(source.url)
+    part = folder / f"{stem}.pdf.part"
+
+    class InterruptedStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield b"first-"
+            raise httpx.ReadError("Simulated connection interruption")
+
+        async def aclose(self):
+            pass
+
+    def interrupted_handler(request):
+        return httpx.Response(
+            200,
+            stream=InterruptedStream(),
+            headers={"Content-Type": "application/pdf"},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(interrupted_handler)) as client:
+        with pytest.raises(httpx.ReadError):
+            await _download(
+                client,
+                source,
+                tmp_path,
+                tmp_path / "data" / "raw",
+            )
+
+    # The partial download must survive the interruption.
+    assert part.exists()
+    assert part.read_bytes() == b"first-"
+
+    requested_ranges = []
+
+    def resume_handler(request):
+        requested_ranges.append(request.headers.get("Range"))
+
+        assert request.headers.get("Range") == "bytes=6-"
+
+        return httpx.Response(
+            206,
+            content=b"second",
+            headers={
+                "Content-Type": "application/pdf",
+                "Content-Range": "bytes 6-11/12",
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(resume_handler)) as client:
+        result = await _download(
+            client,
+            source,
+            tmp_path,
+            tmp_path / "data" / "raw",
+        )
+
+    saved = tmp_path / result["path"]
+
+    assert requested_ranges == ["bytes=6-"]
+    assert saved.read_bytes() == b"first-second"
+    assert result["bytes"] == 12
+    assert result["sha256"] == hashlib.sha256(b"first-second").hexdigest()
+    assert not part.exists()
