@@ -1,4 +1,4 @@
-\# Capacity plan: FlyRight
+﻿\# Capacity plan: FlyRight
 
 
 
@@ -16,10 +16,8 @@ Full corpus target: + all relevant CARs, revisions and 4 airlines' terms (1,200+
 
 
 
-1\. Is embedding cost a problem for this product? (1 line, with the number)
 
-2\. Do the vectors and text fit in my free Postgres? (1 line: compare with the storage limit on my database dashboard)
-
-3\. Which number above am I least sure about, and how will I measure it better? (1 line)
-
-4\. What changes if the corpus grows 10 times? (2 lines)
+1. **Embedding cost:** Not measurable yet because no documents have been downloaded; the estimate will use actual corpus tokens and the configured embedding price.
+2. **Postgres storage:** Not measurable yet; compare the generated text and vector storage estimates with the actual free-tier database storage limit once measurements are available.
+3. **Least certain number:** Estimated tokens, because characters divided by four is only a rough approximation; measure actual tokenizer output on a representative sample.
+4. **10x corpus growth:** Text storage, vector storage, and embedding cost will increase approximately 10x if document size and processing settings remain similar. Recheck database capacity and embedding budget before expanding.
