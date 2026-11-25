@@ -68,19 +68,19 @@ The corpus targets have not yet been reached. Continue collecting only permitted
 
 | Metric | Current value |
 |---|---:|
-| Unique documents | 9 |
-| Total pages | 1,000 |
+| Unique documents | 10 |
+| Total pages | 1,148 |
 | Total characters | 192,381 |
 | Estimated tokens | 28,084 |
-| Total size | 231.40 MiB |
+| Total size | 257.75 MiB |
 | Unavailable or excluded sources | 8 |
 
 ## Capacity targets
 
 | Target | Goal | Current | Progress |
 |---|---:|---:|---:|
-| Full pages | 1,200 | 1,000 | 83.3% |
-| Full files | 2,500 | 9 | 0.4% |
+| Full pages | 1,200 | 1,148 | 95.7% |
+| Full files | 2,500 | 10 | 0.4% |
 
 ## Status
 
