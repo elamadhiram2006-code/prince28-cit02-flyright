@@ -69,33 +69,33 @@ Command:
 uv run python scripts/explain.py rule "3.2.1 - Volunteers for denied boarding"
 ```
 
-#### Normal query plan
+**Normal query plan**
 
 ```text
 Seq Scan on documents  (cost=0.00..3.25 rows=1 width=36) (actual time=2.140..2.140 rows=1.00 loops=1)
-  Filter: (metadata @> '{"rule": "3.2.1 - Volunteers for denied boarding"}'::jsonb)
-  Rows Removed by Filter: 19
-  Buffers: shared read=3 dirtied=3
+ Filter: (metadata @> '{"rule": "3.2.1 - Volunteers for denied boarding"}'::jsonb)
+ Rows Removed by Filter: 19
+ Buffers: shared read=3 dirtied=3
 Planning:
-  Buffers: shared hit=117 read=8 dirtied=1
+ Buffers: shared hit=117 read=8 dirtied=1
 Planning Time: 6.343 ms
 Execution Time: 2.171 ms
 ```
 
-#### Query plan with sequential scans disabled
+**Query plan with sequential scans disabled**
 
 ```text
-Bitmap Heap Scan on documents  (cost=8.54..12.55 rows=1 width=36) (actual time=0.872..0.873 rows=1.00 loops=1)
-  Recheck Cond: (metadata @> '{"rule": "3.2.1 - Volunteers for denied boarding"}'::jsonb)
-  Heap Blocks: exact=1
-  Buffers: shared hit=2 read=1
-  -> Bitmap Index Scan on ix_documents_metadata_gin  (cost=0.00..8.54 rows=1 width=0) (actual time=0.833..0.833 rows=1.00 loops=1)
-       Index Cond: (metadata @> '{"rule": "3.2.1 - Volunteers for denied boarding"}'::jsonb)
-       Index Searches: 1
-       Buffers: shared hit=1 read=1
+Bitmap Heap Scan on documents (cost=8.54..12.55 rows=1 width=36) (actual time=0.872..0.873 rows=1.00 loops=1)
+ Recheck Cond: (metadata @> '{"rule": "3.2.1 - Volunteers for denied boarding"}'::jsonb)
+ Heap Blocks: exact=1
+ Buffers: shared hit=2 read=1
+ -> Bitmap Index Scan on ix_documents_metadata_gin (cost=0.00..8.54 rows=1 width=0) (actual time=0.833..0.833 rows=1.00 loops=1)
+      Index Cond: (metadata @> '{"rule": "3.2.1 - Volunteers for denied boarding"}'::jsonb)
+      Index Searches: 1
+      Buffers: shared hit=1 read=1
 Planning:
-  Buffers: shared hit=1
-Planning Time: 0.087 ms
+ Buffers: shared hit=1
+ Planning Time: 0.087 ms
 Execution Time: 0.922 ms
 ```
 
@@ -115,7 +115,7 @@ Command:
 uv run pytest -v
 ```
 
-Result:
+Previously recorded result:
 
 ```text
 16 passed, 3 skipped in 0.33s
@@ -145,7 +145,7 @@ Command:
 uv run pytest -v
 ```
 
-Result:
+Previously recorded result:
 
 ```text
 19 passed in 11.50s
@@ -227,7 +227,7 @@ Live `/health` endpoint:
 
 https://flyright-api.onrender.com/health
 
-Latest previously verified production response:
+Previously recorded production response:
 
 ```json
 {
@@ -426,7 +426,7 @@ Command:
 uv run pytest tests/unit/test_fetch.py -q
 ```
 
-Latest result:
+Latest recorded result:
 
 ```text
 25 passed in 0.44s
@@ -514,7 +514,7 @@ Latest measured dataset report:
 | Full corpus target | 1,200+ pages |
 | Remaining pages to target | At least 1,066 |
 
-The current valid documents are:
+The four valid PDFs in the measured D06 dataset were:
 
 1. Passenger Denied Boarding Cancellation and Delay CAR — 8 pages.
 2. Refund of Airline Tickets CAR — 3 pages.
@@ -532,8 +532,6 @@ The complete file list and SHA-256 fingerprints are recorded in `data/manifest.j
 - No unverified permission has been treated as approval.
 
 ### 4. Robots.txt and Access Restrictions
-
-The following access issues were recorded:
 
 | Source | Result |
 |---|---|
@@ -560,7 +558,7 @@ The automated tests cover resume and manifest behaviour. The real three-run exer
 
 ### 6. Capacity Measurements
 
-The current corpus contains 134 pages, 192,381 characters and approximately 28,084 tokens.
+The measured D06 corpus contains 134 pages, 192,381 characters and approximately 28,084 tokens.
 
 The updated `docs/CAPACITY.md` estimates the 1,200-page target using the current measurements.
 
@@ -619,157 +617,147 @@ The local `main` branch was verified as synchronized with `origin/main`, with a 
 - Compare estimated database storage with the actual free PostgreSQL storage limit.
 - Record the actual live interruption and resume measurements when the drill is performed.
 
-**Current D06 conclusion:** Downloader implementation, automated tests, dataset reporting, capacity reporting and documentation merge are completed. The live resume drill, complete source permissions and 1,200+ page corpus target remain outstanding.
+**D06 conclusion:** Downloader implementation, automated tests, dataset reporting, capacity reporting and documentation merge are completed. The live resume drill, complete source permissions and 1,200+ page corpus target remain outstanding.
 
 ---
 
 ## D07 · PDF Parsing Quality Notes
 
-### 1. Initial Parsing Results
+### 1. Parsing Implementation
 
-- 13 downloaded files were eligible for parsing.
-- The initial run successfully parsed 10 files.
-- One file was already parsed and skipped.
-- Two DGCA PDF files initially failed with `no_text_layer`.
-- The initial run extracted and stored 1,273 pages in PostgreSQL.
-- PDF text extraction using PyMuPDF was working.
-- Some extracted headings were noisy and contained dates or names instead of meaningful section titles.
-- Some extracted text contained character recognition errors.
-- Repeated report headers appeared in page text.
-- The document title "World-Class Civil Aviation Infrastructure" looked reasonable.
-- Scanned PDFs required OCR.
+- Implemented PDF and HTML parsing.
+- Stored extracted pages in PostgreSQL.
+- Added heading and table extraction support.
+- Added `parse_failures` tracking.
+- Added OCR fallback for scanned PDFs.
+- Used PyMuPDF as the primary PDF parser.
 
-### 2. Full Parsing and Failure Review
+### 2. Parsing Results
 
-- Ran the full parser twice successfully after OCR recovery.
-- Both final runs reported 13 files and 13 already parsed.
-- The second run created 0 additional pages, confirming idempotency.
-- Queried `parse_failures`: 0 outstanding failures.
-- Both scanned PDFs were successfully recovered using English OCR.
+The manifest contains 13 downloaded entries representing 12 unique files.
+
+Two HTML files were found to have identical SHA-256 hashes:
+
+- `digigov-portal-4fd04e37.html`
+- `digigov-portal-e95b6f2d.html`
+
+The parser deduplicates files with identical content, explaining why 13 manifest entries correspond to 12 unique parsed documents.
+
+Final database inventory:
+
+| Document type | Count |
+|---|---:|
+| PDF | 11 |
+| HTML | 1 |
+| Total parsed documents | 12 |
+
+Total stored pages: **1,289**.
+
+Outstanding parse failures: **0**.
 
 ### 3. OCR Recovery
 
-The two scanned DGCA PDFs initially failed because they did not contain an extractable text layer.
+Two scanned DGCA PDFs initially failed with `no_text_layer`.
 
-Tesseract English OCR was used to recover them:
+Tesseract 5.5.3.20260724 was installed with English language support.
+
+Command:
 
 ```powershell
 uv run python scripts/parse_corpus.py --retry-failed --ocr eng --limit 20
 ```
 
-The retry successfully parsed both previously failed files.
+Both scanned documents were recovered.
 
-| Failure reason | Initial failures | Final status |
-|---|---:|---|
-| `no_text_layer` | 2 | Both recovered using English OCR |
+| Document | Pages | Extracted characters |
+|---|---:|---:|
+| Refund of Airline Tickets CAR | 3 | 5,721 |
+| Persons with Disability and Reduced Mobility CAR | 13 | 33,770 |
 
-### 4. Parsing My Corpus
+Manual inspection confirmed readable OCR text across all three pages of the Refund of Airline Tickets CAR.
 
-| Metric | Result |
-|---|---:|
-| Files eligible for parsing | 13 |
-| Files successfully parsed or already parsed | 13 |
-| Outstanding parse failures | 0 |
-| Parsing coverage | 100% |
-| Pages stored in PostgreSQL | **VERIFY WITH SQL** |
+### 4. Parser Idempotency
 
-To verify the exact page count:
+The parser was executed again after successful parsing.
 
-```sql
-SELECT COUNT(*) AS total_pages
-FROM pages;
-```
+The repeated runs reported all 13 manifest entries as already parsed, with zero additional pages created.
+
+This confirmed that repeated parsing did not create duplicate document pages.
 
 ### 5. Parser Comparison
 
-The comparison script evaluated ten files using PyMuPDF and pypdf.
+Compared PyMuPDF and pypdf on ten representative files.
 
-| File | Parser A | A chars | A tables | A sec | Parser B | B chars | B tables | B sec | Better parser and why |
-|---|---|---:|---:|---:|---|---:|---:|---:|---|
-| `data\raw\moca\annual-report-2023-24.pdf` | PyMuPDF | 496259 | 0 | 8.61 | pypdf | 474632 | 0 | 26.61 | PyMuPDF — more characters and faster |
-| `data\raw\moca\annual-report-2024-25.pdf` | PyMuPDF | 411622 | 0 | 5.6 | pypdf | 393736 | 0 | 17.3 | PyMuPDF — more characters and faster |
-| `data\raw\moca\annual-report-2019-20.pdf` | PyMuPDF | 241644 | 0 | 3.56 | pypdf | 232601 | 0 | 10.9 | PyMuPDF — more characters and faster |
-| `data\raw\moca\annual-report-2022-23.pdf` | PyMuPDF | 373203 | 0 | 3.45 | pypdf | 352436 | 0 | 15.99 | PyMuPDF — more characters and faster |
-| `data\raw\moca\annual-report-2018-19.pdf` | PyMuPDF | 329314 | 0 | 3.2 | pypdf | 315241 | 0 | 13.41 | PyMuPDF — more characters and faster |
-| `data\raw\moca\annual-report-2020-21.pdf` | PyMuPDF | 337711 | 0 | 3.21 | pypdf | 327971 | 0 | 12.62 | PyMuPDF — more characters and faster |
-| `data\raw\moca\annual-report-2021-22.pdf` | PyMuPDF | 333601 | 0 | 3.69 | pypdf | 308015 | 0 | 16.73 | PyMuPDF — more characters and faster |
-| `data\raw\dgca\upload-5246a2aa.pdf` | PyMuPDF | 191275 | 56 | 13.16 | pypdf | 162365 | 0 | 6.76 | PyMuPDF — extracted 56 tables and more characters |
-| `data\raw\dgca\upload-2b704f8c.pdf` | PyMuPDF | 0 | 0 | 0.05 | pypdf | 0 | 0 | 0.01 | Neither — zero text; OCR required |
-| `data\raw\dgca\upload-f576f41e.pdf` | PyMuPDF | 0 | 0 | 0.1 | pypdf | 0 | 0 | 0.0 | Neither — zero text; OCR required |
+Findings:
 
-**Comparison conclusion:**
+- PyMuPDF extracted more characters and was faster on seven annual reports.
+- For `upload-5246a2aa.pdf`, PyMuPDF detected 56 tables, while pypdf detected zero.
+- Neither parser extracted text from the two scanned PDFs without OCR.
 
-PyMuPDF is the preferred parser for the tested annual reports because it extracted more characters and completed faster than pypdf.
+**Conclusion:** PyMuPDF is the preferred primary parser for the tested documents. Tesseract OCR is used as a fallback for scanned PDFs.
 
-PyMuPDF is also preferred for `upload-5246a2aa.pdf` because it extracted 56 tables, whereas pypdf extracted none.
+### 6. Manual Extraction Inspection
 
-Neither parser can effectively extract text from the two scanned PDFs without OCR.
+**Civil Aviation Requirements**
 
-### 6. Manual Inspection of Parsed Documents
+- Extracted text was available.
+- Headings were detected on subsequent pages.
+- Some initial pages had empty heading arrays.
+- Section headings such as `SECTION 3 – AIR TRANSPORT` and `3.3 Cancellation of Flight` were identified.
 
-At least three parsed documents must be manually inspected in PostgreSQL.
+**Accessibility Standards and Guidelines — Project Team**
 
-For each document, verify:
+- Text extraction was verified.
+- Headings including `Project Team`, `Disclaimer`, `Preface`, and `Acknowledgement` were identified.
+- Repeated headings and some front-matter extraction artifacts were observed.
+- PyMuPDF detected 56 tables.
 
-- Document title and page number.
-- Extracted text and heading path.
-- Whether the heading path is meaningful and correctly ordered.
-- Whether any text is missing, duplicated or incorrectly extracted.
-- Whether tables are preserved as structured data or readable text.
+**Refund of Airline Tickets CAR**
 
-Example query:
+- OCR text was recovered across all three pages.
+- Heading extraction returned empty heading arrays.
+- The extracted text was manually checked and found readable.
 
-```sql
-SELECT
-    d.title,
-    p.page_no,
-    p.headings,
-    LEFT(p.text, 600) AS start_of_page
-FROM pages p
-JOIN documents d ON d.id = p.document_id
-ORDER BY d.title, p.page_no
-LIMIT 15;
-```
+### 7. Known Limitations
 
-**Manual inspection findings — complete after checking three documents:**
+- Scanned PDFs require OCR.
+- OCR heading extraction may return empty heading arrays.
+- Repeated headers and headings can occur.
+- Front-matter page ordering and extraction quality may require improvement.
+- Higher character counts do not guarantee accurate extraction of financial figures or numerical tables.
+- Legacy Tamil fonts may require additional Unicode conversion or OCR handling.
 
-- Document 1: PENDING INSPECTION.
-- Document 2: PENDING INSPECTION.
-- Document 3: PENDING INSPECTION.
-- Heading path correctness: PENDING INSPECTION.
-- One extraction issue observed: PENDING INSPECTION.
-- One table example: PENDING INSPECTION.
+### 8. Final Verification
 
-### 7. Parser Choice for Documents Containing Numbers
+| Verification | Result |
+|---|---|
+| Downloaded manifest entries | 13 |
+| Unique downloaded files | 12 |
+| Parsed documents | 12 |
+| Stored pages | 1,289 |
+| Outstanding parse failures | 0 |
+| OCR recovery | 2 documents |
+| Parser comparison | 10 files |
+| Parser idempotency | Verified |
+| Production health | Healthy |
+| Production readiness | Ready |
 
-PyMuPDF is preferred for the tested annual reports because it extracted more characters and was faster in the comparison.
+Production version verified:
 
-For documents containing financial figures, tables, dates and numerical data, the extracted values and table structure should also be checked manually. A higher character count alone does not guarantee numerical accuracy.
+`c31d669393e8119582b04687a3b64f946720d1ae`
 
-### 8. Document Types That Need Special Handling
+### 9. D07 Completion Checklist
 
-Scanned image-only PDFs are not handled effectively by either PyMuPDF or pypdf without OCR.
+- [x] PDF and HTML parsing implemented.
+- [x] Parsed content stored in PostgreSQL.
+- [x] Heading and table extraction tested.
+- [x] Parse failure tracking verified.
+- [x] All 12 unique downloaded files parsed.
+- [x] Both scanned PDFs recovered using English OCR.
+- [x] Parser idempotency verified.
+- [x] PyMuPDF and pypdf compared on ten files.
+- [x] Three documents manually inspected.
+- [x] Corpus coverage reconciled using SHA-256 hashes.
+- [x] Production deployment verified.
 
-Tesseract OCR successfully recovered the two scanned DGCA PDFs.
-
-Tamil text stored in legacy non-Unicode fonts may also require a Unicode source or a suitable OCR workflow.
-
-### 9. What Went Wrong and How It Was Fixed
-
-Two DGCA PDFs initially failed because they had no extractable text layer.
-
-The parser recorded the failures using the `no_text_layer` reason. The files were retried using Tesseract English OCR, and both were successfully recovered.
-
-Some annual-report headings and extracted text also contained noise, including repeated headers and recognition errors. Manual quality inspection is required to identify and document these extraction issues.
-
-### 10. D07 Completion Checklist
-
-- [x] Implemented PDF and HTML parsing.
-- [x] Stored parsed pages in PostgreSQL.
-- [x] Added heading and table extraction support.
-- [x] Added `parse_failures` tracking.
-- [x] Parsed the available 13 eligible files.
-- [x] Recovered both initial scanned-PDF failures using English OCR.
-- [x] Verified that rerunning the parser does not create duplicate pages.
-- [x] Compared PyMuPDF and pypdf on ten files.
-- [ ] Verified exact final page count in
+**D07 conclusion:** PDF parsing, OCR recovery, parser comparison, database verification, and corpus reconciliation completed.
