@@ -3,7 +3,7 @@
 
 Full corpus target: All relevant CARs, revisions and four airlines' terms (1,200+ pages).
 
-## Measured on the current corpus
+## Initial baseline measurement (2026-11-24)
 
 Measurement date: 2026-11-24
 
@@ -51,7 +51,7 @@ These are planning estimates, not measured production storage or billing figures
 
 4. **What changes if the corpus grows 10 times?** Token volume, chunk count, embedding cost and storage requirements will grow approximately 10 times, assuming similar documents. I will need to monitor PostgreSQL storage, indexing performance and embedding costs as the corpus expands.
 
-## Current progress
+## Initial baseline progress (before annual reports were added)
 
 | Target | Goal | Current | Progress |
 |---|---:|---:|---:|
@@ -62,10 +62,10 @@ The corpus targets have not yet been reached. Continue collecting only permitted
 
 <!-- BEGIN GENERATED CONTENT -->
 
-**Last updated:** 2026-11-24
+**Last updated:** 2026-11-25
 
-- Unique valid documents: **6**
-- Total pages: **588**
+- Unique valid documents: **9**
+- Total pages: **1,000**
 - Total characters: **192,381**
 - Estimated tokens: **28,084**
 - Unavailable or excluded sources: **8**
@@ -80,6 +80,9 @@ The corpus targets have not yet been reached. Continue collecting only permitted
 | Accessibility Standards and Guidelines for Civil Aviation 2022 | dgca | 110 | 17,503,869 |  |
 | Ministry of Civil Aviation Annual Report 2024-25 | moca | 176 | 40,433,732 | Page count measured; text extraction skipped because the PDF exceeds the safe extraction size. |
 | Ministry of Civil Aviation Annual Report 2023-24 | moca | 278 | 77,483,597 | Page count measured; text extraction skipped because the PDF exceeds the safe extraction size. |
+| Ministry of Civil Aviation Annual Report 2022-23 | moca | 172 | 29,882,064 | Page count measured; text extraction skipped because the PDF exceeds the safe extraction size. |
+| Ministry of Civil Aviation Annual Report 2020-21 | moca | 124 | 27,823,241 | Page count measured; text extraction skipped because the PDF exceeds the safe extraction size. |
+| Ministry of Civil Aviation Annual Report 2019-20 | moca | 116 | 35,126,178 | Page count measured; text extraction skipped because the PDF exceeds the safe extraction size. |
 
 ## Sources not included in the corpus
 

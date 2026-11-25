@@ -3,7 +3,7 @@
 
 Full corpus target: All relevant CARs, revisions and four airlines' terms (1,200+ pages).
 
-## Measured on the current corpus
+## Initial baseline measurement (2026-11-24)
 
 Measurement date: 2026-11-24
 
@@ -51,7 +51,7 @@ These are planning estimates, not measured production storage or billing figures
 
 4. **What changes if the corpus grows 10 times?** Token volume, chunk count, embedding cost and storage requirements will grow approximately 10 times, assuming similar documents. I will need to monitor PostgreSQL storage, indexing performance and embedding costs as the corpus expands.
 
-## Current progress
+## Initial baseline progress (before annual reports were added)
 
 | Target | Goal | Current | Progress |
 |---|---:|---:|---:|
@@ -62,25 +62,25 @@ The corpus targets have not yet been reached. Continue collecting only permitted
 
 <!-- BEGIN GENERATED CONTENT -->
 
-**Last updated:** 2026-11-24
+**Last updated:** 2026-11-25
 
 ## Corpus measurements
 
 | Metric | Current value |
 |---|---:|
-| Unique documents | 6 |
-| Total pages | 588 |
+| Unique documents | 9 |
+| Total pages | 1,000 |
 | Total characters | 192,381 |
 | Estimated tokens | 28,084 |
-| Total size | 142.87 MiB |
+| Total size | 231.40 MiB |
 | Unavailable or excluded sources | 8 |
 
 ## Capacity targets
 
 | Target | Goal | Current | Progress |
 |---|---:|---:|---:|
-| Full pages | 1,200 | 588 | 49.0% |
-| Full files | 2,500 | 6 | 0.2% |
+| Full pages | 1,200 | 1,000 | 83.3% |
+| Full files | 2,500 | 9 | 0.4% |
 
 ## Status
 
