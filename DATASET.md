@@ -64,8 +64,8 @@ The corpus targets have not yet been reached. Continue collecting only permitted
 
 **Last updated:** 2026-11-25
 
-- Unique valid documents: **10**
-- Total pages: **1,148**
+- Unique valid documents: **11**
+- Total pages: **1,288**
 - Total characters: **192,381**
 - Estimated tokens: **28,084**
 - Unavailable or excluded sources: **8**
@@ -84,6 +84,7 @@ The corpus targets have not yet been reached. Continue collecting only permitted
 | Ministry of Civil Aviation Annual Report 2020-21 | moca | 124 | 27,823,241 | Page count measured; text extraction skipped because the PDF exceeds the safe extraction size. |
 | Ministry of Civil Aviation Annual Report 2019-20 | moca | 116 | 35,126,178 | Page count measured; text extraction skipped because the PDF exceeds the safe extraction size. |
 | Ministry of Civil Aviation Annual Report 2021-22 | moca | 148 | 27,624,423 | Page count measured; text extraction skipped because the PDF exceeds the safe extraction size. |
+| Ministry of Civil Aviation Annual Report 2018-19 | moca | 140 | 29,227,104 | Page count measured; text extraction skipped because the PDF exceeds the safe extraction size. |
 
 ## Sources not included in the corpus
 
