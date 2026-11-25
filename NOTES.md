@@ -640,3 +640,27 @@ The local `main` branch was verified as synchronized with `origin/main`, with a 
 - Scanned PDFs may need OCR.
 - Tamil text from legacy non-Unicode fonts may require a Unicode source or OCR.
 - The 20-file target remains outstanding because only 13 eligible downloaded files were available.
+
+### Full parsing and failure review
+
+- Ran the full parser twice successfully.
+- Both runs reported 13 files and 13 already parsed.
+- Second run created 0 additional pages, confirming idempotency.
+- Queried parse_failures: 0 outstanding failures out of 13 downloaded files.
+- Both scanned PDFs were successfully recovered using English OCR.
+## Parser comparison
+
+| File | Parser A | A chars | A tables | A sec | Parser B | B chars | B tables | B sec | Better parser and why |
+|---|---|---:|---:|---:|---|---:|---:|---:|---|
+| `data\raw\moca\annual-report-2023-24.pdf` | PyMuPDF | 496259 | 0 | 8.61 | pypdf | 474632 | 0 | 26.61 | TODO: inspect and decide |
+| `data\raw\moca\annual-report-2024-25.pdf` | PyMuPDF | 411622 | 0 | 5.6 | pypdf | 393736 | 0 | 17.3 | TODO: inspect and decide |
+| `data\raw\moca\annual-report-2019-20.pdf` | PyMuPDF | 241644 | 0 | 3.56 | pypdf | 232601 | 0 | 10.9 | TODO: inspect and decide |
+| `data\raw\moca\annual-report-2022-23.pdf` | PyMuPDF | 373203 | 0 | 3.45 | pypdf | 352436 | 0 | 15.99 | TODO: inspect and decide |
+| `data\raw\moca\annual-report-2018-19.pdf` | PyMuPDF | 329314 | 0 | 3.2 | pypdf | 315241 | 0 | 13.41 | TODO: inspect and decide |
+| `data\raw\moca\annual-report-2020-21.pdf` | PyMuPDF | 337711 | 0 | 3.21 | pypdf | 327971 | 0 | 12.62 | TODO: inspect and decide |
+| `data\raw\moca\annual-report-2021-22.pdf` | PyMuPDF | 333601 | 0 | 3.69 | pypdf | 308015 | 0 | 16.73 | TODO: inspect and decide |
+| `data\raw\dgca\upload-5246a2aa.pdf` | PyMuPDF | 191275 | 56 | 13.16 | pypdf | 162365 | 0 | 6.76 | TODO: inspect and decide |
+| `data\raw\dgca\upload-2b704f8c.pdf` | PyMuPDF | 0 | 0 | 0.05 | pypdf | 0 | 0 | 0.01 | TODO: inspect and decide |
+| `data\raw\dgca\upload-f576f41e.pdf` | PyMuPDF | 0 | 0 | 0.1 | pypdf | 0 | 0 | 0.0 | TODO: inspect and decide |
+
+Review at least three files manually. Fill in the final column with the better parser and a short reason.
