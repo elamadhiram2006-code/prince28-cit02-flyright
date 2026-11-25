@@ -621,3 +621,22 @@ The local `main` branch was verified as synchronized with `origin/main`, with a 
 - Record the actual live interruption and resume measurements when the drill is performed.
 
 **Current D06 conclusion:** Downloader implementation, automated tests, dataset reporting, capacity reporting and documentation merge are completed. The live resume drill, complete source permissions and 1,200+ page corpus target remain outstanding.
+
+
+
+
+## Day 8 — PDF Parsing Quality Notes
+
+- 13 downloaded files were eligible for parsing.
+- Successfully parsed 10 files.
+- One file was already parsed and skipped.
+- Two DGCA PDF files failed with `no_text_layer`.
+- Extracted and stored 1,273 pages in PostgreSQL.
+- PDF text extraction using PyMuPDF is working.
+- Some extracted headings are noisy and contain dates or names instead of meaningful section titles.
+- Some extracted text contains character recognition errors.
+- Repeated report headers appear in page text.
+- The document title "World-Class Civil Aviation Infrastructure" looks reasonable.
+- Scanned PDFs may need OCR.
+- Tamil text from legacy non-Unicode fonts may require a Unicode source or OCR.
+- The 20-file target remains outstanding because only 13 eligible downloaded files were available.
