@@ -761,3 +761,217 @@ Production version verified:
 - [x] Production deployment verified.
 
 **D07 conclusion:** PDF parsing, OCR recovery, parser comparison, database verification, and corpus reconciliation completed.
+
+---
+
+## D09 · Streaming Chat API and LLM Gateway Experiments
+
+### 1. Chat API Implementation
+
+- Added versioned system prompt: `prompts/chat_system_v1.md`.
+- Added `POST /v1/chat` with streaming Server-Sent Events (SSE).
+- Added non-streaming JSON responses.
+- Added `GET /v1/usage` for daily usage and cost summaries.
+- Integrated the API with the LLM gateway and usage recorder.
+- Added dependency overrides and fake LLM fixtures for unit tests.
+- Added `scripts/ask.py` to test the API and measure response timing.
+
+### 2. Automated Tests and Code Quality
+
+Chat API tests:
+
+```text
+7 passed
+```
+
+Complete unit test suite:
+
+```text
+89 passed, 1 warning
+```
+
+Code quality:
+
+```text
+uv run poe lint
+
+Ruff checks: All checks passed!
+Ruff format: 64 files already formatted
+```
+
+The warning relates to the optional PySocks dependency.
+
+### 3. Real API Verification
+
+Verified the following endpoints:
+
+- `POST /v1/chat` with streaming enabled.
+- `POST /v1/chat` with JSON responses.
+- `GET /v1/usage`.
+
+Both streaming and JSON requests successfully returned answers through the Groq fallback provider.
+
+Recorded streaming cancellation test:
+
+```text
+Provider: groq
+Model: openai/gpt-oss-20b
+First words: 61.59 seconds
+Total time: 62.49 seconds
+Input tokens: 237
+Output tokens: 559
+Cost: Rs 0.017620
+Fallback: YES
+```
+
+Recorded JSON denied-boarding test:
+
+```text
+Provider: groq
+Model: openai/gpt-oss-20b
+Total time: 62.40 seconds
+Input tokens: 232
+Output tokens: 225
+Cost: Rs 0.008065
+Fallback: YES
+```
+
+### 4. Token Comparison
+
+Compared three requests using the same system prompt and Groq fallback.
+
+| Message | Input tokens | Output tokens |
+|---|---:|---:|
+| Hi | 228 | 109 |
+| English refund question | 241 | 282 |
+| Tamil refund question | 252 | 249 |
+
+Input token differences relative to "Hi":
+
+- English refund question: +13 tokens.
+- Tamil refund question: +24 tokens.
+
+These differences include the effect of the system prompt and provider tokenization. They are not standalone message-token counts.
+
+### 5. Off-topic and Flight Status Tests
+
+Off-topic question:
+
+```text
+Who won the 2011 cricket world cup?
+```
+
+The assistant responded:
+
+```text
+This question is outside FlyRight's subject.
+```
+
+Flight status question:
+
+```text
+Is my flight on time today?
+```
+
+The assistant explained that it could not access real-time flight status and directed the passenger to check the airline or a flight-tracking service.
+
+Both tests behaved appropriately for the current application scope.
+
+### 6. Passenger Rights Answer Checks
+
+Tested cancellation, delay assistance and denied boarding questions.
+
+The assistant generated responses for all three scenarios using Groq fallback.
+
+However:
+
+- Document retrieval is not connected to the chat endpoint yet.
+- Legal claims were not independently verified against the source documents.
+- The denied-boarding response included specific compensation percentage claims that require verification.
+- The chat prompt instructs the model not to invent legal references and to direct users to official sources for current fees, deadlines and eligibility.
+
+These experiments demonstrate response generation, not verified legal accuracy.
+
+### 7. Invalid Primary Model and Fallback Test
+
+Temporarily changed the primary model configuration to:
+
+```text
+LLM_PRIMARY_MODEL=gemini-no-such-model
+```
+
+The `.env` file was backed up before the experiment and restored afterwards.
+
+Groq successfully answered the test requests when the primary provider failed.
+
+The circuit breaker configuration was inspected:
+
+```text
+Failure threshold: 3
+Cooldown: 30 seconds
+```
+
+A request was also made after the cooldown period. The response metadata confirmed Groq fallback, but did not independently prove the internal half-open state.
+
+The original primary model setting was restored:
+
+```text
+LLM_PRIMARY_MODEL=gemini-3.8-flash
+```
+
+### 8. Gemini Quota Investigation
+
+The Neon `llm_calls` table was inspected to identify the primary provider failure.
+
+Observed Gemini errors included:
+
+- HTTP 429: Current quota exceeded.
+- HTTP 503: Model temporarily experiencing high demand.
+- ReadTimeout: Request timed out.
+
+Google AI Studio Rate Limits dashboard showed:
+
+| Model | RPM | TPM | RPD |
+|---|---:|---:|---:|
+| Gemini 3.8 Flash | 2 / 5 | 8.1K / 250K | 23 / 20 |
+| Gemini 3.6 Flash | 1 / 5 | 75.15K / 250K | 2 / 20 |
+
+Gemini 3.8 Flash exceeded its displayed daily request limit.
+
+The primary model's successful operation after quota reset remains pending verification.
+
+The fallback provider continued serving chat requests successfully.
+
+### 9. Usage Tracking
+
+A usage endpoint snapshot during testing reported:
+
+```text
+Date: 2026-11-26
+Calls: 23
+Errors: 11
+Fallbacks: 12
+Input tokens: 2,832
+Output tokens: 2,708
+Cost: Rs 0.0974
+```
+
+These figures represent the usage snapshot at the time of the experiment, not the final lifetime totals.
+
+The `llm_calls` database table stores provider, model, status, error, token counts, latency, cost and fallback information.
+
+### 10. Day 9 Outstanding Verification
+
+- Confirm Gemini primary responses after the daily quota resets.
+- Verify circuit-breaker half-open behaviour independently.
+- Verify individual provider usage records against the final usage endpoint totals.
+- Continue checking legal responses against authoritative DGCA documents when retrieval is implemented.
+- Record a successful Gemini-primary response when quota becomes available.
+
+### 11. Day 9 Conclusion
+
+The streaming chat API, JSON response mode, usage endpoint, versioned prompt, automated tests and Groq fallback were implemented and tested.
+
+The Gemini primary provider encountered quota exhaustion and temporary availability errors. The fallback mechanism allowed the API to continue answering requests.
+
+**Day 9 implementation and fallback experiments are verified. Successful Gemini-primary operation after quota reset remains pending.**
