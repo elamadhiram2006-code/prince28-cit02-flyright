@@ -432,3 +432,31 @@ async def test_gateway_recovers_after_half_open_success():
     assert primary.calls == 4
     assert breaker.state == "closed"
     assert breaker.failures == 0
+
+
+# 21
+async def test_provider_generate_supports_response_format():
+    response_format = {"type": "json_object"}
+    captured = {}
+
+    def handler(request):
+        captured.update(__import__("json").loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": '{"label":"docs"}'}}],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+            },
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    provider = OpenAICompatProvider(
+        "test", "https://example.com/v1", "secret", "test-model", client=client
+    )
+    try:
+        reply = await provider.generate(MESSAGES, response_format=response_format)
+    finally:
+        await client.aclose()
+
+    assert captured["response_format"] == response_format
+    assert reply.text == '{"label":"docs"}'
