@@ -1,6 +1,11 @@
+"""Configure structured JSON logging and request ID context."""
+
 import json
 import logging
 import sys
+from contextvars import ContextVar
+
+request_id_ctx: ContextVar[str] = ContextVar("request_id", default="")
 
 
 class JSONFormatter(logging.Formatter):
@@ -10,8 +15,10 @@ class JSONFormatter(logging.Formatter):
             "msg": record.getMessage(),
         }
 
-        if hasattr(record, "request_id"):
-            log_data["request_id"] = record.request_id
+        request_id = getattr(record, "request_id", None) or request_id_ctx.get()
+
+        if request_id:
+            log_data["request_id"] = request_id
 
         if hasattr(record, "method"):
             log_data["method"] = record.method
