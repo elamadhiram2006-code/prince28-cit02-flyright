@@ -389,3 +389,46 @@ async def test_gateway_stream_does_not_fallback_mid_answer():
 
     assert primary.calls == 1
     assert backup.calls == 0
+
+
+async def test_gateway_recovers_after_half_open_success():
+    now = [0.0]
+
+    primary = FakeLLM(
+        "gemini",
+        "gemini-3.8-flash",
+        [
+            LLMError("failure 1", retryable=False),
+            LLMError("failure 2", retryable=False),
+            LLMError("failure 3", retryable=False),
+            "Recovered successfully",
+        ],
+    )
+
+    gateway = LLMGateway(
+        [primary],
+        clock=lambda: now[0],
+        breaker_threshold=3,
+        breaker_cooldown=30,
+        sleep=no_sleep,
+    )
+
+    for _ in range(3):
+        with pytest.raises(LLMUnavailable):
+            await gateway.generate(MESSAGES)
+
+    breaker = gateway.breakers["gemini"]
+
+    assert breaker.state == "open"
+    assert primary.calls == 3
+
+    now[0] = 31.0
+
+    assert breaker.state == "half-open"
+
+    result = await gateway.generate(MESSAGES)
+
+    assert result.text == "Recovered successfully"
+    assert primary.calls == 4
+    assert breaker.state == "closed"
+    assert breaker.failures == 0
