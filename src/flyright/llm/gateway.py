@@ -116,17 +116,28 @@ class OpenAICompatProvider:
         messages: list[Message],
         temperature: float,
         stream: bool,
+        response_format: dict | None = None,
+        max_completion_tokens: int | None = None,
     ) -> dict:
         body = {
             "model": self.model,
             "messages": messages,
             "temperature": temperature,
         }
+
+        if response_format is not None:
+            body["response_format"] = response_format
+
+        # Only add an output limit when the caller explicitly requests one.
+        if max_completion_tokens is not None:
+            body["max_completion_tokens"] = max_completion_tokens
+
         if stream:
             body |= {
                 "stream": True,
                 "stream_options": {"include_usage": True},
             }
+
         return body
 
     @staticmethod
@@ -149,8 +160,17 @@ class OpenAICompatProvider:
         messages: list[Message],
         *,
         temperature: float = 0.2,
+        response_format: dict | None = None,
+        max_completion_tokens: int | None = None,
     ) -> Reply:
-        body = self._body(messages, temperature, stream=False)
+        """Generate a response and reject empty provider completions."""
+        body = self._body(
+            messages,
+            temperature,
+            stream=False,
+            response_format=response_format,
+            max_completion_tokens=max_completion_tokens,
+        )
 
         try:
             response = await self._client.post(
@@ -164,15 +184,46 @@ class OpenAICompatProvider:
         if response.status_code != 200:
             raise self._error(response)
 
-        data = response.json()
-        usage = data.get("usage") or {}
-        text = data["choices"][0]["message"].get("content") or ""
+        try:
+            data = response.json()
+            choices = data.get("choices") or []
 
-        return Reply(
-            text,
-            usage.get("prompt_tokens", 0),
-            usage.get("completion_tokens", 0),
-        )
+            if not choices:
+                raise ValueError("Provider returned no choices")
+
+            choice = choices[0]
+            message = choice.get("message") or {}
+            content = message.get("content")
+            text = content.strip() if isinstance(content, str) else ""
+
+            if not text:
+                finish_reason = choice.get("finish_reason", "unknown")
+                message_fields = sorted(message.keys())
+
+                raise LLMError(
+                    (
+                        f"{self.name}: empty completion; "
+                        f"finish_reason={finish_reason}; "
+                        f"message_fields={message_fields}"
+                    ),
+                    retryable=True,
+                )
+
+            usage = data.get("usage") or {}
+
+            return Reply(
+                text,
+                usage.get("prompt_tokens", 0),
+                usage.get("completion_tokens", 0),
+            )
+
+        except LLMError:
+            raise
+        except (ValueError, KeyError, TypeError, IndexError) as exc:
+            raise LLMError(
+                f"{self.name}: invalid provider response: {exc}",
+                retryable=True,
+            ) from exc
 
     async def stream(
         self,
@@ -252,6 +303,8 @@ class FakeLLM:
         messages: list[Message],
         *,
         temperature: float = 0.2,
+        response_format: dict | None = None,
+        max_completion_tokens: int | None = None,
     ) -> Reply:
         item = self._next()
 
@@ -340,7 +393,6 @@ class LLMGateway:
         breaker_threshold: int = 3,
         breaker_cooldown: float = 30.0,
     ) -> None:
-        # Keep the old Settings constructor working for existing callers.
         self._legacy_settings = providers if isinstance(providers, Settings) else None
         self.providers = [] if self._legacy_settings is not None else providers
         self.breakers = {
