@@ -116,12 +116,18 @@ class OpenAICompatProvider:
         messages: list[Message],
         temperature: float,
         stream: bool,
+        response_format: dict | None = None,
     ) -> dict:
         body = {
             "model": self.model,
             "messages": messages,
             "temperature": temperature,
         }
+
+        # NEW: response_format support
+        if response_format is not None:
+            body["response_format"] = response_format
+
         if stream:
             body |= {
                 "stream": True,
@@ -149,8 +155,15 @@ class OpenAICompatProvider:
         messages: list[Message],
         *,
         temperature: float = 0.2,
+        response_format: dict | None = None,
     ) -> Reply:
-        body = self._body(messages, temperature, stream=False)
+        # NEW: pass response_format into the request body
+        body = self._body(
+            messages,
+            temperature,
+            stream=False,
+            response_format=response_format,
+        )
 
         try:
             response = await self._client.post(
@@ -252,7 +265,9 @@ class FakeLLM:
         messages: list[Message],
         *,
         temperature: float = 0.2,
+        response_format: dict | None = None,
     ) -> Reply:
+        # NEW: accept response_format so gateway calls work with FakeLLM too.
         item = self._next()
 
         if isinstance(item, Exception):
