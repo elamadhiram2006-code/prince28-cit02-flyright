@@ -1165,3 +1165,5 @@ After correcting v4 to use the verified corpus and adding one targeted rule dist
 - Fallbacks: 18
 
 The fresh evaluation confirms that the revised v4 correctly classified all 20 benchmark questions.
+
+- Cost at list price: Rs 1.4521 in total, Rs 0.1210 per document (combined comparison and extraction usage).
