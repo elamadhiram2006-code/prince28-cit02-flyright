@@ -5,8 +5,7 @@ knowledge base. These include:
 
 - DGCA Civil Aviation Requirements, Section 3, Series M, Part IV, covering facilities
   for passengers affected by denied boarding, flight cancellations and flight delays.
-- DGCA Accessibility Standards and Guidelines for Civil Aviation (2022).
-- Ministry of Civil Aviation annual reports from 2018–19 through 2024–25.
+- Ministry of Civil Aviation annual reports from 2018–19 through 2023-24.
 
 Classify the question between the <question> tags into exactly one category:
 
