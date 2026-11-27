@@ -1125,3 +1125,43 @@ Metadata extraction successfully processed all 12 parsed documents. Unit tests, 
 Gemini primary encountered quota and availability errors during the experiments. Groq fallback successfully handled classification and extraction requests.
 
 **Day 9 implementation and functional verification are completed. Final Git commit, pull request and merge verification remain outstanding.**
+
+### 20. Prompt Version Comparison (Milestone 3)
+
+Evaluated all 20 questions in `eval/prompt_testset.jsonl`.
+
+| Version | Correct | Total | Accuracy |
+|---|---:|---:|---:|
+| v1 | 14 | 20 | 70% |
+| v2 | 20 | 20 | 100% |
+| v3 | 19 | 20 | 95% |
+| v4 | 20 | 20 | 100% |
+
+Test-set leakage: NONE for all four versions.
+
+Provider/model: Groq / openai/gpt-oss-20b (fallback provider).
+
+The best results were achieved by v2 and v4, both scoring 20/20. There were no incorrect classifications for either version on this benchmark.
+
+The one benchmark miss in v3 was:
+- Question: What are the rules for lost, delayed, or damaged baggage?
+- Expected: `docs`
+- Predicted: `invalid`
+
+This indicates that v3 failed to return a valid classification for a baggage-related document question. The best versions, v2 and v4, corrected this on the benchmark.
+
+
+### Fresh v4 Evaluation
+
+After correcting v4 to use the verified corpus and adding one targeted rule distinguishing general compensation questions from personal booking-specific compensation questions, v4 was evaluated using a fresh cache directory (`eval/cache_v4_fresh`).
+
+- Questions evaluated: 20/20
+- Accuracy: 20/20 (100%)
+- Test-set leakage: NONE
+- Provider/model: Groq / openai/gpt-oss-20b
+- Tokens: 9,211
+- Cost: Rs 0.146075
+- Average latency: 13,169 ms
+- Fallbacks: 18
+
+The fresh evaluation confirms that the revised v4 correctly classified all 20 benchmark questions.
