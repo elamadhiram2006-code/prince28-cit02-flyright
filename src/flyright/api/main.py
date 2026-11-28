@@ -1,10 +1,8 @@
 """FastAPI application setup."""
 
 import asyncio
-import signal
 from contextlib import asynccontextmanager, suppress
 
-from arq.worker import Worker
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 
@@ -23,9 +21,7 @@ from flyright.db.llm_calls import make_recorder
 from flyright.db.session import make_engine, make_sessionmaker
 from flyright.llm.gateway import build_gateway
 from flyright.logging_setup import setup_logging
-from flyright.workers.ingest import ingest_document
-from flyright.workers.main import shutdown, startup
-from flyright.workers.queue import redis_settings
+from flyright.workers.main import run_embedded
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -45,7 +41,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             make_recorder(app.state.session_factory),
         )
 
-        embedded_worker = None
         worker_task = None
         ready_task = None
 
@@ -53,24 +48,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if settings.worker_in_api:
                 ready = asyncio.Event()
 
-                async def embedded_startup(ctx: dict) -> None:
-                    ctx["settings"] = settings
-                    await startup(ctx)
-                    ready.set()
-
-                embedded_worker = Worker(
-                    functions=[ingest_document],
-                    redis_settings=redis_settings(settings.redis_url),
-                    on_startup=embedded_startup,
-                    on_shutdown=shutdown,
-                    max_jobs=settings.ingest_concurrency,
-                    job_timeout=settings.ingest_job_timeout,
-                    max_tries=settings.ingest_max_tries,
-                    ctx={"settings": settings},
-                )
-
                 worker_task = asyncio.create_task(
-                    embedded_worker.async_run(),
+                    run_embedded(settings, ready=ready),
                     name="flyright-embedded-worker",
                 )
                 ready_task = asyncio.create_task(ready.wait())
@@ -86,8 +65,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         raise RuntimeError("Embedded worker stopped before startup completed.")
 
                 await ready_task
-                app.state.worker = embedded_worker
-                app.state.worker_task = worker_task
 
             yield
 
@@ -98,13 +75,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     await ready_task
 
             try:
-                if embedded_worker is not None:
-                    if worker_task is not None and not worker_task.done():
-                        embedded_worker.handle_sig(signal.SIGINT)
-                        with suppress(asyncio.CancelledError):
-                            await worker_task
-
-                    await embedded_worker.close()
+                if worker_task is not None and not worker_task.done():
+                    worker_task.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await worker_task
             finally:
                 await engine.dispose()
 
