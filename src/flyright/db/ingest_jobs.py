@@ -89,14 +89,16 @@ class IngestRepository:
         )
         return list(rows)
 
-    async def open_item_ids(self, job_id: str) -> list[int]:
-        """Return queued or running item IDs."""
-        rows = await self.session.scalars(
+    async def open_item_ids(self, job_id: str | None = None) -> list[int]:
+        """Return unfinished item IDs, optionally restricted to one job."""
+        stmt = (
             select(IngestItem.id)
-            .where(
-                IngestItem.job_id == job_id,
-                IngestItem.status.in_(("queued", "running")),
-            )
+            .where(IngestItem.status.in_(("queued", "running")))
             .order_by(IngestItem.id)
         )
+
+        if job_id is not None:
+            stmt = stmt.where(IngestItem.job_id == job_id)
+
+        rows = await self.session.scalars(stmt)
         return list(rows)

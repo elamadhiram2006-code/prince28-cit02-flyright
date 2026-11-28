@@ -1,17 +1,18 @@
 """ARQ worker configuration and application lifecycle."""
 
 from flyright.config import get_settings
+from flyright.db.ingest_jobs import IngestRepository
 from flyright.db.llm_calls import make_recorder
 from flyright.db.session import make_engine, make_sessionmaker
 from flyright.ingest.fetch import make_client
 from flyright.llm.gateway import build_gateway
 from flyright.logging_setup import setup_logging
 from flyright.workers.ingest import Pace, ingest_document
-from flyright.workers.queue import redis_settings
+from flyright.workers.queue import Queue, redis_settings
 
 
 async def startup(ctx: dict) -> None:
-    """Initialize resources required by ingestion jobs."""
+    """Initialize resources and recover unfinished ingestion jobs."""
     settings = get_settings()
     setup_logging(settings.log_level)
 
@@ -32,6 +33,21 @@ async def startup(ctx: dict) -> None:
             "pace": Pace(settings.ingest_rpm),
         }
     )
+
+    # PostgreSQL is the source of truth. Restore unfinished jobs to Redis.
+    async with sessionmaker() as session:
+        item_ids = await IngestRepository(session).open_item_ids()
+
+    recovered = await Queue(ctx["redis"]).put(item_ids)
+
+    if item_ids:
+        import logging
+
+        logging.getLogger("flyright.worker").info(
+            "Worker startup recovered %s unfinished item(s); %s newly queued",
+            len(item_ids),
+            recovered,
+        )
 
 
 async def shutdown(ctx: dict) -> None:
